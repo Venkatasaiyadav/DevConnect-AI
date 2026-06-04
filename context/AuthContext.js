@@ -4,7 +4,9 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { 
   onAuthStateChanged, 
   signInWithPopup, 
-  signOut 
+  signOut,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword
 } from "firebase/auth";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db, googleProvider, githubProvider } from "../lib/firebase";
@@ -56,6 +58,29 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const signupWithEmail = async (email, password, displayName) => {
+    try {
+      const result = await createUserWithEmailAndPassword(auth, email, password);
+      // Optional: Add displayName immediately to the result.user if needed, but we save it to Firestore
+      const userToSave = { ...result.user, displayName: displayName || result.user.displayName };
+      await saveUserToFirestore(userToSave);
+      return result.user;
+    } catch (error) {
+      console.error("Email signup error:", error);
+      throw error;
+    }
+  };
+
+  const loginWithEmail = async (email, password) => {
+    try {
+      const result = await signInWithEmailAndPassword(auth, email, password);
+      return result.user;
+    } catch (error) {
+      console.error("Email login error:", error);
+      throw error;
+    }
+  };
+
   const logout = async () => {
     try {
       await signOut(auth);
@@ -75,7 +100,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loginWithGoogle, loginWithGithub, logout, loading }}>
+    <AuthContext.Provider value={{ user, loginWithGoogle, loginWithGithub, signupWithEmail, loginWithEmail, logout, loading }}>
       {!loading && children}
     </AuthContext.Provider>
   );

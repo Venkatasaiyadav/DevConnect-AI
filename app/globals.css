@@ -1,5 +1,5 @@
-@import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import "tailwindcss";
 * {
   box-sizing: border-box;
 }
@@ -50,8 +50,6 @@ body {
 /* --- RESET & GLOBAL STYLES --- */
 *, *::before, *::after {
   box-sizing: border-box;
-  margin: 0;
-  padding: 0;
 }
 
 body {
@@ -1404,8 +1402,6 @@ button, input, textarea, select {
 
 /* --- RESET & GLOBALS --- */
 * {
-  margin: 0;
-  padding: 0;
   box-sizing: border-box;
 }
 

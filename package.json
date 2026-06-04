@@ -4,7 +4,7 @@
   "description": "> Build. Collaborate. Grow. Powered by AI.",
   "main": "index.js",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --webpack",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
