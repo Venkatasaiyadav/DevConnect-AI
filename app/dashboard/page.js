@@ -1,11 +1,14 @@
 "use client";
 
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { useEffect, useState } from "react";
 import Navbar from "../../components/Navbar";
 import ProtectedRoute from "../../components/ProtectedRoute";
 import CodeEditorModal from "../../components/CodeEditorModal";
 import { useAuth } from "../../context/AuthContext";
 import { db } from "../../lib/firebase";
+import AIDraftAssistant from "../../components/AIDraftAssistant";
 import {
   collection,
   addDoc,
@@ -522,6 +525,7 @@ export default function Dashboard() {
   const [posts, setPosts] = useState([]);
   const [error, setError] = useState("");
   const [posting, setPosting] = useState(false);
+  const [showAiDraft, setShowAiDraft] = useState(false);
   const [selectedTags, setSelectedTags] = useState([]);
   const [openCommentsFor, setOpenCommentsFor] = useState(null);
   const [commentDraft, setCommentDraft] = useState("");
@@ -578,9 +582,9 @@ export default function Dashboard() {
   };
 
   const handleInsertCode = (codeBlock) => {
-  setContent((prev) => prev + (prev ? "\n\n" : "") + codeBlock);
-  setShowCodeEditor(false);
-};
+    setContent((prev) => prev + (prev ? "\n\n" : "") + codeBlock);
+    setShowCodeEditor(false);
+  };
 
   const toggleTag = (tag) => {
     setSelectedTags((prev) =>
@@ -797,16 +801,34 @@ export default function Dashboard() {
                     </button>
                   </div>
 
-                  <label style={S.aiHelperToggle}>
-                    <input type="checkbox" defaultChecked style={{ display: "none" }} />
-                    <span style={{
-                      position: "relative",
-                      display: "inline-block",
-                      width: 36,
-                      height: 20,
-                      backgroundColor: "var(--accent-ai)",
-                      borderRadius: "var(--radius-full)",
-                    }} />
+                  <label
+                    style={S.aiHelperToggle}
+                    onClick={() => setShowAiDraft((prev) => !prev)}
+                  >
+                    <span
+                      style={{
+                        position: "relative",
+                        display: "inline-block",
+                        width: 36,
+                        height: 20,
+                        backgroundColor: showAiDraft ? "var(--accent-ai)" : "var(--border-color)",
+                        borderRadius: "var(--radius-full)",
+                        transition: "background-color 0.2s",
+                      }}
+                    >
+                      <span
+                        style={{
+                          position: "absolute",
+                          top: 2,
+                          left: showAiDraft ? 18 : 2,
+                          width: 16,
+                          height: 16,
+                          backgroundColor: "#fff",
+                          borderRadius: "50%",
+                          transition: "left 0.2s",
+                        }}
+                      />
+                    </span>
                     <span>Draft with AI Assistant</span>
                     <span style={S.pulsePoint} />
                   </label>
@@ -819,6 +841,15 @@ export default function Dashboard() {
                     {posting ? "Posting..." : "Post Discussion"}
                   </button>
                 </div>
+
+                {showAiDraft && (
+                  <AIDraftAssistant
+                    onInsert={(draft) => {
+                      setContent((prev) => (prev ? prev + "\n\n" + draft : draft));
+                      setShowAiDraft(false);
+                    }}
+                  />
+                )}
               </div>
 
               {/* Feed filters */}
@@ -872,7 +903,65 @@ export default function Dashboard() {
                         </div>
                       ) : (
                         <div style={S.postBody}>
-                          <p style={{ margin: 0 }}>{post.content}</p>
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                              code({ className, children, ...props }) {
+                                const isInline = !className;
+                                return isInline ? (
+                                  <code
+                                    style={{
+                                      background: "var(--bg-primary)",
+                                      padding: "2px 6px",
+                                      borderRadius: 4,
+                                      fontSize: "0.85em",
+                                    }}
+                                    {...props}
+                                  >
+                                    {children}
+                                  </code>
+                                ) : (
+                                  <pre
+                                    style={{
+                                      background: "var(--bg-primary)",
+                                      border: "1px solid var(--border-color)",
+                                      borderRadius: "var(--radius-md)",
+                                      padding: 12,
+                                      overflowX: "auto",
+                                      fontSize: "0.85em",
+                                    }}
+                                  >
+                                    <code className={className} {...props}>
+                                      {children}
+                                    </code>
+                                  </pre>
+                                );
+                              },
+                              p({ children }) {
+                                return <p style={{ margin: "0 0 10px 0", lineHeight: 1.6 }}>{children}</p>;
+                              },
+                              h1({ children }) {
+                                return <h3 style={{ margin: "12px 0 6px" }}>{children}</h3>;
+                              },
+                              h2({ children }) {
+                                return <h3 style={{ margin: "12px 0 6px" }}>{children}</h3>;
+                              },
+                              h3({ children }) {
+                                return <h4 style={{ margin: "10px 0 6px" }}>{children}</h4>;
+                              },
+                              ul({ children }) {
+                                return <ul style={{ paddingLeft: 20, margin: "0 0 10px 0" }}>{children}</ul>;
+                              },
+                              ol({ children }) {
+                                return <ol style={{ paddingLeft: 20, margin: "0 0 10px 0" }}>{children}</ol>;
+                              },
+                              li({ children }) {
+                                return <li style={{ marginBottom: 4 }}>{children}</li>;
+                              },
+                            }}
+                          >
+                            {post.content}
+                          </ReactMarkdown>
                         </div>
                       )}
 
