@@ -2,7 +2,7 @@
 
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Navbar from "../../components/Navbar";
 import ProtectedRoute from "../../components/ProtectedRoute";
 import CodeEditorModal from "../../components/CodeEditorModal";
@@ -527,6 +527,7 @@ export default function Dashboard() {
   const [posting, setPosting] = useState(false);
   const [showAiDraft, setShowAiDraft] = useState(false);
   const [selectedTags, setSelectedTags] = useState([]);
+  const [customTag, setCustomTag] = useState("");
   const [openCommentsFor, setOpenCommentsFor] = useState(null);
   const [commentDraft, setCommentDraft] = useState("");
   const [editingId, setEditingId] = useState(null);
@@ -536,7 +537,12 @@ export default function Dashboard() {
   const [editingComment, setEditingComment] = useState(null);
   const [editingCommentDraft, setEditingCommentDraft] = useState("");
 
-  const availableTags = ["#react", "#rust", "#typescript", "#ai-agents", "#css"];
+  const availableTags = [
+    "#react", "#nextjs", "#javascript", "#typescript",
+    "#frontend", "#backend", "#nodejs", "#python",
+    "#rust", "#go", "#ai-agents", "#machine-learning",
+    "#css", "#devops", "#docker", "#database",
+  ];
 
   useEffect(() => {
     const postsQuery = query(collection(db, "posts"), orderBy("timestamp", "desc"));
@@ -553,7 +559,45 @@ export default function Dashboard() {
     return () => unsubscribe();
   }, []);
 
+  // ── Trending tags, computed live from posts ────────────────────────────────
+  const trendingTags = useMemo(() => {
+    const counts = {};
+    const newToday = {};
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    posts.forEach((post) => {
+      const postDate = post.timestamp?.toDate ? post.timestamp.toDate() : null;
+      const isToday = postDate && postDate >= startOfToday;
+
+      (post.tags || []).forEach((tag) => {
+        counts[tag] = (counts[tag] || 0) + 1;
+        if (isToday) newToday[tag] = (newToday[tag] || 0) + 1;
+      });
+    });
+
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([tag, count]) => ({
+        tag,
+        posts: `${count} post${count === 1 ? "" : "s"}`,
+        new: newToday[tag] ? `+${newToday[tag]} new today` : "No new posts today",
+      }));
+  }, [posts]);
+
   // ── Post actions ────────────────────────────────────────────────────────────
+
+  const addCustomTag = () => {
+    let tag = customTag.trim();
+    if (!tag) return;
+    if (!tag.startsWith("#")) tag = "#" + tag;
+    tag = tag.toLowerCase().replace(/\s+/g, "-");
+    if (!selectedTags.includes(tag)) {
+      setSelectedTags((prev) => [...prev, tag]);
+    }
+    setCustomTag("");
+  };
 
   const handleCreatePost = async () => {
     if (!content.trim() || !user) return;
@@ -784,6 +828,57 @@ export default function Dashboard() {
                       {tag}
                     </span>
                   ))}
+
+                  {/* Show any custom tags the user has added that aren't in the default list */}
+                  {selectedTags
+                    .filter((tag) => !availableTags.includes(tag))
+                    .map((tag) => (
+                      <span
+                        key={tag}
+                        onClick={() => toggleTag(tag)}
+                        style={{ ...S.tagBadgeSelected, cursor: "pointer", userSelect: "none" }}
+                      >
+                        {tag} ✕
+                      </span>
+                    ))}
+
+                  {/* Custom tag input */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <input
+                      value={customTag}
+                      onChange={(e) => setCustomTag(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          addCustomTag();
+                        }
+                      }}
+                      placeholder="Add tag..."
+                      style={{
+                        background: "transparent",
+                        border: "1px solid var(--border-color)",
+                        borderRadius: "var(--radius-full)",
+                        color: "var(--text-primary)",
+                        outline: "none",
+                        fontSize: "0.8rem",
+                        padding: "4px 10px",
+                        width: 90,
+                      }}
+                    />
+                    <button
+                      onClick={addCustomTag}
+                      type="button"
+                      style={{
+                        ...S.tagBadge,
+                        cursor: "pointer",
+                        padding: "4px 10px",
+                        border: "1px solid var(--accent-primary)",
+                        color: "var(--accent-primary)",
+                      }}
+                    >
+                      + Add
+                    </button>
+                  </div>
                 </div>
 
                 {error && <p style={{ color: "red", marginTop: 10 }}>{error}</p>}
@@ -1134,19 +1229,21 @@ export default function Dashboard() {
               <div style={S.sidebarWidget}>
                 <h3 style={S.widgetTitle}>Trending Tags</h3>
                 <div style={S.trendingList}>
-                  {[
-                    { tag: "#react", posts: "240 posts", new: "+24 new today" },
-                    { tag: "#rust", posts: "182 posts", new: "+12 new today" },
-                    { tag: "#ai-agents", posts: "110 posts", new: "+38 new today" },
-                  ].map(({ tag, posts, new: newPosts }) => (
-                    <div key={tag} style={S.trendingItem}>
-                      <a href="#" style={S.trendingLink}>
-                        <span>{tag}</span>
-                        <span>{posts}</span>
-                      </a>
-                      <span style={S.trendingStats}>{newPosts}</span>
-                    </div>
-                  ))}
+                  {trendingTags.length === 0 ? (
+                    <p style={{ color: "var(--text-muted)", fontSize: "0.85rem", margin: 0 }}>
+                      No tags yet — be the first to tag a post!
+                    </p>
+                  ) : (
+                    trendingTags.map(({ tag, posts, new: newPosts }) => (
+                      <div key={tag} style={S.trendingItem}>
+                        <a href="#" style={S.trendingLink}>
+                          <span>{tag}</span>
+                          <span>{posts}</span>
+                        </a>
+                        <span style={S.trendingStats}>{newPosts}</span>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
 
