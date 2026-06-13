@@ -699,23 +699,28 @@ export default function Dashboard() {
     }
   };
 
-  // Responsive main layout
+  // ── Responsive layout grid ─────────────────────────────────────────────────
+  // Desktop  : 3-col (left nav | feed | right widgets)
+  // Tablet   : 2-col (feed | right widgets)
+  // Mobile   : 1-col (feed, then widgets stacked below)
   const mainLayout = {
     display: "grid",
     gridTemplateColumns: isMobile
       ? "1fr"
       : isTablet
-      ? "1fr"
-      : "240px 1fr 340px",
-    gap: isMobile ? 16 : 24,
+      ? "1fr 300px"
+      : "240px 1fr 320px",
+    gap: isMobile ? 16 : 20,
     maxWidth: 1440,
     width: "100%",
     margin: "0 auto",
-    padding: isMobile ? "16px 12px" : isTablet ? "16px 16px" : "24px",
     flex: 1,
     boxSizing: "border-box",
-    // Leave room for mobile bottom nav
-    paddingBottom: isMobile ? "80px" : isTablet ? "80px" : "24px",
+    paddingTop: isMobile ? 12 : isTablet ? 16 : 24,
+    paddingRight: isMobile ? 12 : isTablet ? 16 : 24,
+    paddingBottom: isMobile ? 80 : isTablet ? 24 : 24,
+    paddingLeft: isMobile ? 12 : isTablet ? 16 : 24,
+    alignItems: "start",
   };
 
   // Mobile bottom nav items
@@ -727,6 +732,87 @@ export default function Dashboard() {
     { icon: "🔖", label: "Saved" },
   ];
 
+  // ── Shared widget JSX (reused in both sidebar and inline mobile section) ──
+  const RightWidgets = ({ inline }) => (
+    <div style={{
+      display: "flex",
+      flexDirection: inline ? "column" : "column",
+      gap: 16,
+      // Horizontal scroll row on mobile
+      ...(inline ? {
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+        gap: 12,
+      } : {}),
+    }}>
+      {/* AI Copilot promo */}
+      <div style={S.aiPromoWidget}>
+        <h3 style={S.widgetTitleAi}>
+          <span>Code Review Copilot</span>
+          <span style={S.pulsePoint} />
+        </h3>
+        <p style={S.aiPromoText}>
+          Let AI review your code changes, suggest performance improvements, and write documentation snippets.
+        </p>
+        <button style={S.btnAiCta}>
+          <span>Ask for AI Code Review</span>
+        </button>
+      </div>
+
+      {/* Trending Tags */}
+      <div style={S.sidebarWidget}>
+        <h3 style={S.widgetTitle}>Trending Tags</h3>
+        <div style={S.trendingList}>
+          {[
+            { tag: "#react", posts: "240 posts", new: "+24 new today" },
+            { tag: "#rust", posts: "182 posts", new: "+12 new today" },
+            { tag: "#ai-agents", posts: "110 posts", new: "+38 new today" },
+          ].map(({ tag, posts, new: newPosts }) => (
+            <div key={tag} style={S.trendingItem}>
+              <a href="#" style={S.trendingLink}>
+                <span>{tag}</span>
+                <span>{posts}</span>
+              </a>
+              <span style={S.trendingStats}>{newPosts}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Active Members */}
+      <div style={S.sidebarWidget}>
+        <h3 style={S.widgetTitle}>Active Members</h3>
+        <div style={S.membersList}>
+          {[
+            { initials: "SJ", name: "Sarah Jenkins", role: "Vercel", bg: "linear-gradient(135deg, #ec4899, #f43f5e)" },
+            { initials: "ER", name: "Elena Rostova", role: "AetherDB", bg: "linear-gradient(135deg, #10b981, #059669)" },
+          ].map(({ initials, name, role, bg }) => (
+            <div key={name} style={S.memberItem}>
+              <div style={S.memberMeta}>
+                <div style={{
+                  width: 28, height: 28, fontSize: "0.75rem",
+                  background: bg, borderRadius: "var(--radius-full)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  color: "#000", fontWeight: 700,
+                }}>
+                  {initials}
+                </div>
+                <div>
+                  <div style={S.memberName}>{name}</div>
+                  <div style={S.memberRole}>{role}</div>
+                </div>
+              </div>
+              <div style={S.memberStatus}>
+                <span style={S.statusDotOnline} />
+                <span>Online</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <ProtectedRoute>
       <main style={{ backgroundColor: "var(--bg-primary)", minHeight: "100vh" }}>
@@ -734,41 +820,40 @@ export default function Dashboard() {
           <Navbar variant="dashboard" />
 
           <div style={mainLayout}>
-            {/* ── Left Sidebar — hidden on mobile/tablet ────────────────── */}
+            {/* ── Left Sidebar — desktop only ───────────────────────────── */}
             {!isMobile && !isTablet && (
-            <aside style={S.leftSidebar}>
-              <ul style={S.sidebarNavList}>
-                {[
-                  { icon: "▦", label: "Feed", active: true },
-                  { icon: "📈", label: "Trending" },
-                  { icon: "❔", label: "Questions" },
-                  { icon: "👥", label: "Collaborations" },
-                  { icon: "🔖", label: "Saved Posts" },
-                ].map(({ icon, label, active }) => (
-                  <li key={label}>
-                    <a href="#" style={active ? S.sidebarNavItemLinkActive : S.sidebarNavItemLink}>
-                      <span>{icon}</span>
-                      <span>{label}</span>
+              <aside style={S.leftSidebar}>
+                <ul style={S.sidebarNavList}>
+                  {[
+                    { icon: "▦", label: "Feed", active: true },
+                    { icon: "📈", label: "Trending" },
+                    { icon: "❔", label: "Questions" },
+                    { icon: "👥", label: "Collaborations" },
+                    { icon: "🔖", label: "Saved Posts" },
+                  ].map(({ icon, label, active }) => (
+                    <li key={label}>
+                      <a href="#" style={active ? S.sidebarNavItemLinkActive : S.sidebarNavItemLink}>
+                        <span>{icon}</span>
+                        <span>{label}</span>
+                      </a>
+                    </li>
+                  ))}
+                  <li>
+                    <a href="/" style={S.sidebarNavItemLink}>
+                      <span>ℹ️</span>
+                      <span>Features Tour</span>
                     </a>
                   </li>
-                ))}
-                <li>
-                  <a href="/" style={S.sidebarNavItemLink}>
-                    <span>ℹ️</span>
-                    <span>Features Tour</span>
+                </ul>
+                <div style={S.sidebarFooterCard}>
+                  <p style={S.sidebarFooterCardP}>
+                    Get instant AI reviews of your code repositories directly from GitHub.
+                  </p>
+                  <a href="/#features" style={S.btnSidebarCta}>
+                    Activate AI Copilot
                   </a>
-                </li>
-              </ul>
-
-              <div style={S.sidebarFooterCard}>
-                <p style={S.sidebarFooterCardP}>
-                  Get instant AI reviews of your code repositories directly from GitHub.
-                </p>
-                <a href="/#features" style={S.btnSidebarCta}>
-                  Activate AI Copilot
-                </a>
-              </div>
-            </aside>
+                </div>
+              </aside>
             )}
 
             {/* ── Feed Column ──────────────────────────────────────────── */}
@@ -1048,74 +1133,23 @@ export default function Dashboard() {
                   ))
                 )}
               </div>
+              {/* ── Mobile-only: widgets inline below the feed ─────────── */}
+              {isMobile && (
+                <div style={{ marginTop: 8 }}>
+                  <RightWidgets inline />
+                </div>
+              )}
             </section>
 
-            {/* ── Right Sidebar — hidden on mobile/tablet ─────────────── */}
-            {!isMobile && !isTablet && (
-            <aside style={S.rightSidebar}>
-              <div style={S.aiPromoWidget}>
-                <h3 style={S.widgetTitleAi}>
-                  <span>Code Review Copilot</span>
-                  <span style={S.pulsePoint} />
-                </h3>
-                <p style={S.aiPromoText}>
-                  Let AI review your code changes, suggest performance improvements, and write documentation snippets.
-                </p>
-                <button style={S.btnAiCta}>
-                  <span>Ask for AI Code Review</span>
-                </button>
-              </div>
-
-              <div style={S.sidebarWidget}>
-                <h3 style={S.widgetTitle}>Trending Tags</h3>
-                <div style={S.trendingList}>
-                  {[
-                    { tag: "#react", posts: "240 posts", new: "+24 new today" },
-                    { tag: "#rust", posts: "182 posts", new: "+12 new today" },
-                    { tag: "#ai-agents", posts: "110 posts", new: "+38 new today" },
-                  ].map(({ tag, posts, new: newPosts }) => (
-                    <div key={tag} style={S.trendingItem}>
-                      <a href="#" style={S.trendingLink}>
-                        <span>{tag}</span>
-                        <span>{posts}</span>
-                      </a>
-                      <span style={S.trendingStats}>{newPosts}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div style={S.sidebarWidget}>
-                <h3 style={S.widgetTitle}>Active Members</h3>
-                <div style={S.membersList}>
-                  {[
-                    { initials: "SJ", name: "Sarah Jenkins", role: "Vercel", bg: "linear-gradient(135deg, #ec4899, #f43f5e)" },
-                    { initials: "ER", name: "Elena Rostova", role: "AetherDB", bg: "linear-gradient(135deg, #10b981, #059669)" },
-                  ].map(({ initials, name, role, bg }) => (
-                    <div key={name} style={S.memberItem}>
-                      <div style={S.memberMeta}>
-                        <div style={{
-                          width: 28, height: 28, fontSize: "0.75rem",
-                          background: bg, borderRadius: "var(--radius-full)",
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                          color: "#000", fontWeight: 700,
-                        }}>
-                          {initials}
-                        </div>
-                        <div>
-                          <div style={S.memberName}>{name}</div>
-                          <div style={S.memberRole}>{role}</div>
-                        </div>
-                      </div>
-                      <div style={S.memberStatus}>
-                        <span style={S.statusDotOnline} />
-                        <span>Online</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </aside>
+            {/* ── Right Sidebar — tablet & desktop ──────────────────────── */}
+            {!isMobile && (
+              <aside style={{
+                ...S.rightSidebar,
+                // On tablet: not sticky, just a normal flow column
+                ...(isTablet ? { position: "relative", top: "auto", height: "auto", overflowY: "visible" } : {}),
+              }}>
+                <RightWidgets />
+              </aside>
             )}
           </div>
         </div>
