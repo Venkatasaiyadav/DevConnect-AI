@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { useEffect, useState, useMemo } from "react";
 import Navbar from "../../components/Navbar";
 import ProtectedRoute from "../../components/ProtectedRoute";
 import CodeEditorModal from "../../components/CodeEditorModal";
 import { useAuth } from "../../context/AuthContext";
 import { useResponsive } from "../../hooks/useResponsive";
 import { db } from "../../lib/firebase";
+import AIDraftAssistant from "../../components/AIDraftAssistant";
 import {
   collection,
   addDoc,
@@ -174,7 +177,8 @@ const S = {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingTop: 12,
+    paddingTop: 4,
+    marginTop: 2,
     borderTop: "1px solid var(--border-color)",
   },
   composerTools: { display: "flex", gap: 8 },
@@ -182,20 +186,21 @@ const S = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    width: 32,
-    height: 32,
+    width: 22,
+    height: 22,
     background: "transparent",
     border: "none",
     borderRadius: "var(--radius-sm)",
     color: "var(--text-muted)",
     cursor: "pointer",
+    fontSize: "0.8rem",
   },
   aiHelperToggle: {
     display: "flex",
     alignItems: "center",
-    gap: 8,
+    gap: 6,
     cursor: "pointer",
-    fontSize: "0.85rem",
+    fontSize: "0.78rem",
     fontWeight: 500,
     color: "var(--text-muted)",
     userSelect: "none",
@@ -203,26 +208,28 @@ const S = {
   btnPost: {
     display: "flex",
     alignItems: "center",
-    gap: 8,
-    padding: "8px 18px",
+    gap: 6,
+    padding: "5px 12px",
     backgroundColor: "var(--accent-primary)",
     border: "none",
     borderRadius: "var(--radius-md)",
     color: "#000",
     fontWeight: 600,
+    fontSize: "0.8rem",
     cursor: "pointer",
     transition: "all var(--transition-fast)",
   },
   btnPostDisabled: {
     display: "flex",
     alignItems: "center",
-    gap: 8,
-    padding: "8px 18px",
+    gap: 6,
+    padding: "5px 12px",
     backgroundColor: "var(--border-color)",
     border: "none",
     borderRadius: "var(--radius-md)",
     color: "var(--text-muted)",
     fontWeight: 600,
+    fontSize: "0.8rem",
     cursor: "not-allowed",
   },
   feedFiltersBar: {
@@ -515,7 +522,9 @@ export default function Dashboard() {
   const [posts, setPosts] = useState([]);
   const [error, setError] = useState("");
   const [posting, setPosting] = useState(false);
+  const [showAiDraft, setShowAiDraft] = useState(false);
   const [selectedTags, setSelectedTags] = useState([]);
+  const [customTag, setCustomTag] = useState("");
   const [openCommentsFor, setOpenCommentsFor] = useState(null);
   const [commentDraft, setCommentDraft] = useState("");
   const [editingId, setEditingId] = useState(null);
@@ -525,7 +534,12 @@ export default function Dashboard() {
   const [editingComment, setEditingComment] = useState(null);
   const [editingCommentDraft, setEditingCommentDraft] = useState("");
 
-  const availableTags = ["#react", "#rust", "#typescript", "#ai-agents", "#css"];
+  const availableTags = [
+    "#react", "#nextjs", "#javascript", "#typescript",
+    "#frontend", "#backend", "#nodejs", "#python",
+    "#rust", "#go", "#ai-agents", "#machine-learning",
+    "#css", "#devops", "#docker", "#database",
+  ];
 
   useEffect(() => {
     const postsQuery = query(collection(db, "posts"), orderBy("timestamp", "desc"));
@@ -542,7 +556,45 @@ export default function Dashboard() {
     return () => unsubscribe();
   }, []);
 
+  // ── Trending tags, computed live from posts ────────────────────────────────
+  const trendingTags = useMemo(() => {
+    const counts = {};
+    const newToday = {};
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    posts.forEach((post) => {
+      const postDate = post.timestamp?.toDate ? post.timestamp.toDate() : null;
+      const isToday = postDate && postDate >= startOfToday;
+
+      (post.tags || []).forEach((tag) => {
+        counts[tag] = (counts[tag] || 0) + 1;
+        if (isToday) newToday[tag] = (newToday[tag] || 0) + 1;
+      });
+    });
+
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([tag, count]) => ({
+        tag,
+        posts: `${count} post${count === 1 ? "" : "s"}`,
+        new: newToday[tag] ? `+${newToday[tag]} new today` : "No new posts today",
+      }));
+  }, [posts]);
+
   // ── Post actions ────────────────────────────────────────────────────────────
+
+  const addCustomTag = () => {
+    let tag = customTag.trim();
+    if (!tag) return;
+    if (!tag.startsWith("#")) tag = "#" + tag;
+    tag = tag.toLowerCase().replace(/\s+/g, "-");
+    if (!selectedTags.includes(tag)) {
+      setSelectedTags((prev) => [...prev, tag]);
+    }
+    setCustomTag("");
+  };
 
   const handleCreatePost = async () => {
     if (!content.trim() || !user) return;
@@ -571,9 +623,9 @@ export default function Dashboard() {
   };
 
   const handleInsertCode = (codeBlock) => {
-  setContent((prev) => prev + (prev ? "\n\n" : "") + codeBlock);
-  setShowCodeEditor(false);
-};
+    setContent((prev) => prev + (prev ? "\n\n" : "") + codeBlock);
+    setShowCodeEditor(false);
+  };
 
   const toggleTag = (tag) => {
     setSelectedTags((prev) =>
@@ -888,37 +940,106 @@ export default function Dashboard() {
                       {tag}
                     </span>
                   ))}
+
+                  {/* Show any custom tags the user has added that aren't in the default list */}
+                  {selectedTags
+                    .filter((tag) => !availableTags.includes(tag))
+                    .map((tag) => (
+                      <span
+                        key={tag}
+                        onClick={() => toggleTag(tag)}
+                        style={{ ...S.tagBadgeSelected, cursor: "pointer", userSelect: "none" }}
+                      >
+                        {tag} ✕
+                      </span>
+                    ))}
+
+                  {/* Custom tag input */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <input
+                      value={customTag}
+                      onChange={(e) => setCustomTag(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          addCustomTag();
+                        }
+                      }}
+                      placeholder="Add tag..."
+                      style={{
+                        background: "transparent",
+                        border: "1px solid var(--border-color)",
+                        borderRadius: "var(--radius-full)",
+                        color: "var(--text-primary)",
+                        outline: "none",
+                        fontSize: "0.8rem",
+                        padding: "4px 10px",
+                        width: 90,
+                      }}
+                    />
+                    <button
+                      onClick={addCustomTag}
+                      type="button"
+                      style={{
+                        ...S.tagBadge,
+                        cursor: "pointer",
+                        padding: "4px 10px",
+                        border: "1px solid var(--accent-primary)",
+                        color: "var(--accent-primary)",
+                      }}
+                    >
+                      + Add
+                    </button>
+                  </div>
                 </div>
 
                 {error && <p style={{ color: "red", marginTop: 10 }}>{error}</p>}
 
-                <div style={S.composerActions}>
-                  <div style={S.composerTools}>
-                    <button style={S.composerToolBtn} title="Add Image">🖼️</button>
-                    <button
-                      id="open-code-editor-btn"
-                      style={S.composerToolBtn}
-                      title="Insert Code Block"
-                      onClick={() => setShowCodeEditor(true)}
-                    >
-                      {"</>"}
-                    </button>
-                  </div>
+                <div style={{ ...S.composerActions, gap: 8 }}>
+                  {/* Icon tools */}
+                  <button style={S.composerToolBtn} title="Add Image">🖼️</button>
+                  <button
+                    id="open-code-editor-btn"
+                    style={S.composerToolBtn}
+                    title="Insert Code Block"
+                    onClick={() => setShowCodeEditor(true)}
+                  >
+                    {"</>"}
+                  </button>
 
-                  <label style={S.aiHelperToggle}>
-                    <input type="checkbox" defaultChecked style={{ display: "none" }} />
+                  {/* Divider */}
+                  <span style={{ width: 1, height: 18, background: "var(--border-color)", flexShrink: 0 }} />
+
+                  {/* AI Draft toggle — marginRight:auto pushes Post button to far right */}
+                  <label
+                    style={{ ...S.aiHelperToggle, marginRight: "auto" }}
+                    onClick={() => setShowAiDraft((prev) => !prev)}
+                  >
                     <span style={{
                       position: "relative",
                       display: "inline-block",
-                      width: 36,
-                      height: 20,
-                      backgroundColor: "var(--accent-ai)",
+                      width: 30,
+                      height: 16,
+                      backgroundColor: showAiDraft ? "var(--accent-ai)" : "var(--border-color)",
                       borderRadius: "var(--radius-full)",
-                    }} />
-                    <span>Draft with AI Assistant</span>
-                    <span style={S.pulsePoint} />
+                      transition: "background-color 0.2s",
+                      flexShrink: 0,
+                    }}>
+                      <span style={{
+                        position: "absolute",
+                        top: 3,
+                        left: showAiDraft ? 17 : 3,
+                        width: 10,
+                        height: 10,
+                        backgroundColor: "#fff",
+                        borderRadius: "50%",
+                        transition: "left 0.2s",
+                      }} />
+                    </span>
+                    <span>AI Draft</span>
                   </label>
 
+                  {/* Post button */}
                   <button
                     style={posting || !content.trim() ? S.btnPostDisabled : S.btnPost}
                     onClick={handleCreatePost}
@@ -927,6 +1048,15 @@ export default function Dashboard() {
                     {posting ? "Posting..." : "Post Discussion"}
                   </button>
                 </div>
+
+                {showAiDraft && (
+                  <AIDraftAssistant
+                    onInsert={(draft) => {
+                      setContent((prev) => (prev ? prev + "\n\n" + draft : draft));
+                      setShowAiDraft(false);
+                    }}
+                  />
+                )}
               </div>
 
               {/* Feed filters */}
@@ -980,7 +1110,65 @@ export default function Dashboard() {
                         </div>
                       ) : (
                         <div style={S.postBody}>
-                          <p style={{ margin: 0 }}>{post.content}</p>
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                              code({ className, children, ...props }) {
+                                const isInline = !className;
+                                return isInline ? (
+                                  <code
+                                    style={{
+                                      background: "var(--bg-primary)",
+                                      padding: "2px 6px",
+                                      borderRadius: 4,
+                                      fontSize: "0.85em",
+                                    }}
+                                    {...props}
+                                  >
+                                    {children}
+                                  </code>
+                                ) : (
+                                  <pre
+                                    style={{
+                                      background: "var(--bg-primary)",
+                                      border: "1px solid var(--border-color)",
+                                      borderRadius: "var(--radius-md)",
+                                      padding: 12,
+                                      overflowX: "auto",
+                                      fontSize: "0.85em",
+                                    }}
+                                  >
+                                    <code className={className} {...props}>
+                                      {children}
+                                    </code>
+                                  </pre>
+                                );
+                              },
+                              p({ children }) {
+                                return <p style={{ margin: "0 0 10px 0", lineHeight: 1.6 }}>{children}</p>;
+                              },
+                              h1({ children }) {
+                                return <h3 style={{ margin: "12px 0 6px" }}>{children}</h3>;
+                              },
+                              h2({ children }) {
+                                return <h3 style={{ margin: "12px 0 6px" }}>{children}</h3>;
+                              },
+                              h3({ children }) {
+                                return <h4 style={{ margin: "10px 0 6px" }}>{children}</h4>;
+                              },
+                              ul({ children }) {
+                                return <ul style={{ paddingLeft: 20, margin: "0 0 10px 0" }}>{children}</ul>;
+                              },
+                              ol({ children }) {
+                                return <ol style={{ paddingLeft: 20, margin: "0 0 10px 0" }}>{children}</ol>;
+                              },
+                              li({ children }) {
+                                return <li style={{ marginBottom: 4 }}>{children}</li>;
+                              },
+                            }}
+                          >
+                            {post.content}
+                          </ReactMarkdown>
                         </div>
                       )}
 
@@ -1139,6 +1327,7 @@ export default function Dashboard() {
                   <RightWidgets inline />
                 </div>
               )}
+              
             </section>
 
             {/* ── Right Sidebar — tablet & desktop ──────────────────────── */}
@@ -1155,7 +1344,7 @@ export default function Dashboard() {
         </div>
 
         {/* ── Mobile Bottom Navigation Bar ────────────────────────────── */}
-        <nav className="mobile-bottom-nav" style={{ justifyContent: "space-around", alignItems: "center" }}>
+        <nav className="mobile-bottom-nav" style={{ justifyContent: "space-evenly", alignItems: "center" }}>
           {mobileNavItems.map(({ icon, label, active }) => (
             <button
               key={label}
@@ -1163,16 +1352,17 @@ export default function Dashboard() {
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
+                justifyContent: "center",
                 gap: 3,
+                flex: 1,
                 background: "transparent",
                 border: "none",
                 cursor: "pointer",
-                padding: "6px 10px",
+                padding: "6px 0",
                 color: active ? "var(--accent-primary)" : "var(--text-muted)",
                 fontSize: "0.65rem",
                 fontWeight: active ? 700 : 500,
                 fontFamily: "inherit",
-                minWidth: 48,
               }}
             >
               <span style={{ fontSize: "1.3rem", lineHeight: 1 }}>{icon}</span>
