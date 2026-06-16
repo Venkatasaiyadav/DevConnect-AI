@@ -1062,9 +1062,7 @@ export default function Dashboard() {
   };
 
   // ── Responsive layout grid ─────────────────────────────────────────────────
-  // Desktop  : 3-col (left nav | feed | right widgets)
-  // Tablet   : 2-col (feed | right widgets)
-  // Mobile   : 1-col (feed, then widgets stacked below)
+
   const mainLayout = {
     display: "grid",
     gridTemplateColumns: isMobile
