@@ -1228,80 +1228,69 @@ export default function Dashboard() {
                 )}
               </div>
 
-              {/* ── Mobile-only filter pill bar ─────────────────────────── */}
-              {isMobile && (
-                <div style={{
-                  display: "flex",
-                  gap: 8,
-                  overflowX: "auto",
-                  paddingBottom: 4,
-                  msOverflowStyle: "none",
-                  scrollbarWidth: "none",
-                }}>
-                  {[
-                    { key: "all",      label: "All Posts", icon: "▦"  },
-                    { key: "mine",     label: "My Posts",  icon: "👤" },
-                    { key: "trending", label: "Trending",  icon: "🔥" },
-                    { key: "recent",   label: "Recent",    icon: "🕐" },
-                  ].map(({ key, label, icon }) => {
-                    const isActive = activeFilter === key;
-                    return (
-                      <button
-                        key={key}
-                        onClick={() => setActiveFilter(key)}
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 5,
-                          flexShrink: 0,
-                          padding: "7px 14px",
+              {/* ── Post filter pill bar — all devices ───────────────────── */}
+              <div style={{
+                display: "flex",
+                gap: 8,
+                overflowX: "auto",
+                paddingBottom: 4,
+                msOverflowStyle: "none",
+                scrollbarWidth: "none",
+              }}>
+                {[
+                  { key: "all",      label: "All Posts", icon: "▦"  },
+                  { key: "mine",     label: "My Posts",  icon: "👤" },
+                  { key: "trending", label: "Trending",  icon: "🔥" },
+                  { key: "recent",   label: "Recent",    icon: "🕐" },
+                ].map(({ key, label, icon }) => {
+                  const isActive = activeFilter === key;
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => setActiveFilter(key)}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 5,
+                        flexShrink: 0,
+                        padding: "7px 14px",
+                        borderRadius: "var(--radius-full)",
+                        border: isActive
+                          ? "1px solid var(--accent-primary)"
+                          : "1px solid var(--border-color)",
+                        backgroundColor: isActive
+                          ? "var(--accent-primary-alpha)"
+                          : "var(--bg-secondary)",
+                        color: isActive
+                          ? "var(--accent-primary)"
+                          : "var(--text-secondary)",
+                        fontWeight: isActive ? 700 : 500,
+                        fontSize: "0.85rem",
+                        cursor: "pointer",
+                        fontFamily: "inherit",
+                        transition: "all 0.15s ease",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      <span>{icon}</span>
+                      <span>{label}</span>
+                      {isActive && key !== "all" && (
+                        <span style={{
+                          marginLeft: 2,
+                          background: "var(--accent-primary)",
+                          color: "#000",
                           borderRadius: "var(--radius-full)",
-                          border: isActive
-                            ? "1px solid var(--accent-primary)"
-                            : "1px solid var(--border-color)",
-                          backgroundColor: isActive
-                            ? "var(--accent-primary-alpha)"
-                            : "var(--bg-secondary)",
-                          color: isActive
-                            ? "var(--accent-primary)"
-                            : "var(--text-secondary)",
-                          fontWeight: isActive ? 700 : 500,
-                          fontSize: "0.8rem",
-                          cursor: "pointer",
-                          fontFamily: "inherit",
-                          transition: "all 0.15s ease",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        <span>{icon}</span>
-                        <span>{label}</span>
-                        {isActive && key !== "all" && (
-                          <span style={{
-                            marginLeft: 2,
-                            background: "var(--accent-primary)",
-                            color: "#000",
-                            borderRadius: "var(--radius-full)",
-                            fontSize: "0.65rem",
-                            fontWeight: 700,
-                            padding: "1px 6px",
-                          }}>
-                            {filteredPosts.length}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Feed filters — desktop only (existing tabs, unchanged) */}
-              {!isMobile && (
-                <div style={S.feedFiltersBar}>
-                  {["Latest Feed", "Trending", "Questions", "Collaborations"].map((tab, i) => (
-                    <button key={tab} style={i === 0 ? S.filterTabActive : S.filterTab}>{tab}</button>
-                  ))}
-                </div>
-              )}
+                          fontSize: "0.65rem",
+                          fontWeight: 700,
+                          padding: "1px 6px",
+                        }}>
+                          {filteredPosts.length}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
 
               {/* Posts */}
               <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
