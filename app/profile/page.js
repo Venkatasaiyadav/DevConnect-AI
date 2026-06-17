@@ -205,7 +205,6 @@ export default function Profile() {
   const { user, logout, loading } = useAuth();
   const { isDarkMode, toggleTheme } = useTheme();
   const router = useRouter();
-  const { isMobile } = useResponsive();
 
   const [postCount, setPostCount] = useState(0);
   const [editingName, setEditingName] = useState(false);
@@ -342,11 +341,11 @@ export default function Profile() {
   return (
     <main style={S.main}>
       {/* Navbar */}
-      <header style={{ ...S.navbar, padding: isMobile ? "0 12px" : "0 24px" }}>
-        <Link href="/dashboard" style={{ ...S.navBrand, fontSize: isMobile ? "1rem" : "1.2rem" }}>
-          <span>🧠{!isMobile && " DevConnect AI"}</span>
+      <header style={S.navbar}>
+        <Link href="/dashboard" style={S.navBrand}>
+          <span>🧠 DevConnect AI</span>
         </Link>
-        <div style={{ ...S.navActions, gap: isMobile ? 8 : 16 }}>
+        <div style={S.navActions}>
           <button
             onClick={toggleTheme}
             style={{
