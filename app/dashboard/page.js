@@ -3,6 +3,7 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import Navbar from "../../components/Navbar";
 import ProtectedRoute from "../../components/ProtectedRoute";
 import CodeEditorModal from "../../components/CodeEditorModal";
@@ -11,6 +12,7 @@ import FeatureTour from "../../components/FeatureTour";
 import { useAuth } from "../../context/AuthContext";
 import { db } from "../../lib/firebase";
 import AIDraftAssistant from "../../components/AIDraftAssistant";
+import { createNotification } from "../../lib/notifications";
 import {
   collection,
   addDoc,
@@ -154,7 +156,6 @@ const S = {
     fontSize: "0.95rem",
     fontFamily: "inherit",
   },
-  // Post type selector
   postTypeRow: {
     display: "flex",
     gap: 8,
@@ -276,7 +277,7 @@ const S = {
     WebkitOverflowScrolling: "touch",
     scrollbarWidth: "none",
   },
-filterTab: {
+  filterTab: {
     padding: "8px 14px",
     borderWidth: 0,
     borderStyle: "solid",
@@ -561,7 +562,6 @@ filterTab: {
     backgroundColor: "var(--accent-success)",
     boxShadow: "0 0 6px var(--accent-success)",
   },
-  profilePopupBackdrop: { position: "fixed", inset: 0, zIndex: 200 },
   bottomTabBar: {
     position: "fixed",
     bottom: 0,
@@ -608,7 +608,6 @@ filterTab: {
     alignItems: "center",
     justifyContent: "center",
   },
-  // Trending post card
   trendingPostCard: {
     display: "flex",
     flexDirection: "column",
@@ -618,7 +617,6 @@ filterTab: {
     borderRadius: "var(--radius-md)",
     border: "1px solid var(--border-color)",
   },
-  // Collaborate card
   collaborateCard: {
     display: "flex",
     flexDirection: "column",
@@ -643,7 +641,6 @@ filterTab: {
 
 const FEATURE_TOUR_KEY = "devconnect_feature_tour_seen";
 
-// Feed tabs definition
 const FEED_TABS = [
   { id: "latest", label: "Latest Feed", icon: "▦" },
   { id: "trending", label: "Trending", icon: "📈" },
@@ -657,74 +654,169 @@ function UserAvatar({ photoURL, displayName, size = 36, fontSize = "0.9rem", onC
     <div
       onClick={onClick}
       style={{
-        width: size,
-        height: size,
+        width: size, height: size,
         borderRadius: "var(--radius-full)",
         background: "linear-gradient(135deg, #0284c7, #38bdf8)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        color: "#000",
-        fontWeight: 700,
-        fontSize,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        color: "#000", fontWeight: 700, fontSize,
         border: "2px solid var(--border-color)",
-        flexShrink: 0,
-        overflow: "hidden",
+        flexShrink: 0, overflow: "hidden",
         cursor: onClick ? "pointer" : "default",
       }}
       title={onClick ? `View ${displayName || "user"}'s profile` : undefined}
     >
-      {photoURL ? (
-        <img src={photoURL} alt={displayName || "Avatar"} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-      ) : (
-        displayName?.charAt(0)?.toUpperCase() || "U"
-      )}
+      {photoURL
+        ? <img src={photoURL} alt={displayName || "Avatar"} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        : displayName?.charAt(0)?.toUpperCase() || "U"}
     </div>
   );
 }
 
-// ── Profile popup ──────────────────────────────────────────────────────────────
-function ProfilePopup({ data, posts, onClose }) {
+// ── Profile popup — Follow + View Profile ─────────────────────────────────────
+function ProfilePopup({ data, posts, currentUser, following, onClose, onFollowToggle, onViewProfile }) {
+  const [followLoading, setFollowLoading] = useState(false);
   if (!data) return null;
+
+  const isSelf = currentUser?.uid === data.uid;
+  const isFollowing = following.includes(data.uid);
   const userPostCount = posts.filter((p) => p.uid === data.uid).length;
-  const flippedLeft = data.flipped;
+
+  const handleFollow = async (e) => {
+    e.stopPropagation();
+    if (!currentUser || followLoading) return;
+    setFollowLoading(true);
+    try { await onFollowToggle(data.uid, isFollowing); }
+    finally { setFollowLoading(false); }
+  };
+
+  const handleViewProfile = (e) => {
+    e.stopPropagation();
+    onClose();
+    onViewProfile(data.uid);
+  };
+
   return (
     <>
-      <div style={S.profilePopupBackdrop} onClick={onClose} />
-      <div style={{
-        position: "fixed", top: data.y, left: data.x, zIndex: 999, width: 240,
-        backgroundColor: "var(--bg-secondary)", border: "1px solid var(--border-color)",
-        borderRadius: "var(--radius-lg)", padding: "16px", boxShadow: "0 4px 24px rgba(0,0,0,0.4)",
-        display: "flex", flexDirection: "column", alignItems: "center", gap: 10, transform: "translateY(-50%)",
-      }}>
-        {!flippedLeft && <>
-          <div style={{ position: "absolute", left: -8, top: "50%", transform: "translateY(-50%)", width: 0, height: 0, borderTop: "8px solid transparent", borderBottom: "8px solid transparent", borderRight: "8px solid var(--border-color)" }} />
-          <div style={{ position: "absolute", left: -6, top: "50%", transform: "translateY(-50%)", width: 0, height: 0, borderTop: "7px solid transparent", borderBottom: "7px solid transparent", borderRight: "7px solid var(--bg-secondary)" }} />
-        </>}
-        {flippedLeft && <>
-          <div style={{ position: "absolute", right: -8, top: "50%", transform: "translateY(-50%)", width: 0, height: 0, borderTop: "8px solid transparent", borderBottom: "8px solid transparent", borderLeft: "8px solid var(--border-color)" }} />
-          <div style={{ position: "absolute", right: -6, top: "50%", transform: "translateY(-50%)", width: 0, height: 0, borderTop: "7px solid transparent", borderBottom: "7px solid transparent", borderLeft: "7px solid var(--bg-secondary)" }} />
-        </>}
-        <UserAvatar photoURL={data.photoURL} displayName={data.displayName} size={60} fontSize="1.5rem" />
+      {/* Backdrop */}
+      <div style={{ position: "fixed", inset: 0, zIndex: 200 }} onClick={onClose} />
+
+      <div
+        style={{
+          position: "fixed", top: data.y, left: data.x, zIndex: 999,
+          width: 224,
+          backgroundColor: "var(--bg-secondary)",
+          border: "1px solid var(--border-color)",
+          borderRadius: "var(--radius-lg)",
+          padding: "16px 14px",
+          boxShadow: "0 4px 28px rgba(0,0,0,0.45)",
+          display: "flex", flexDirection: "column", alignItems: "center", gap: 10,
+          transform: "translateY(-50%)",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Pointer arrow */}
+        {!data.flipped ? (
+          <>
+            <div style={{ position: "absolute", left: -8, top: "50%", transform: "translateY(-50%)", width: 0, height: 0, borderTop: "8px solid transparent", borderBottom: "8px solid transparent", borderRight: "8px solid var(--border-color)" }} />
+            <div style={{ position: "absolute", left: -6, top: "50%", transform: "translateY(-50%)", width: 0, height: 0, borderTop: "7px solid transparent", borderBottom: "7px solid transparent", borderRight: "7px solid var(--bg-secondary)" }} />
+          </>
+        ) : (
+          <>
+            <div style={{ position: "absolute", right: -8, top: "50%", transform: "translateY(-50%)", width: 0, height: 0, borderTop: "8px solid transparent", borderBottom: "8px solid transparent", borderLeft: "8px solid var(--border-color)" }} />
+            <div style={{ position: "absolute", right: -6, top: "50%", transform: "translateY(-50%)", width: 0, height: 0, borderTop: "7px solid transparent", borderBottom: "7px solid transparent", borderLeft: "7px solid var(--bg-secondary)" }} />
+          </>
+        )}
+
+        {/* Avatar */}
+        <UserAvatar photoURL={data.photoURL} displayName={data.displayName} size={52} fontSize="1.3rem" />
+
+        {/* Name */}
         <div style={{ textAlign: "center" }}>
-          <div style={{ fontWeight: 700, color: "var(--text-primary)", fontSize: "1rem", marginBottom: 4 }}>{data.displayName || "Anonymous User"}</div>
-          <div style={{ display: "inline-flex", alignItems: "center", padding: "2px 8px", backgroundColor: "var(--accent-primary-alpha)", color: "var(--accent-primary)", borderRadius: "var(--radius-full)", fontSize: "0.7rem", fontWeight: 600 }}>Community Member</div>
+          <div style={{ fontWeight: 700, color: "var(--text-primary)", fontSize: "0.95rem", marginBottom: 4 }}>
+            {data.displayName || "Anonymous User"}
+          </div>
+          <div style={{ display: "inline-flex", alignItems: "center", padding: "2px 8px", backgroundColor: "var(--accent-primary-alpha)", color: "var(--accent-primary)", borderRadius: "var(--radius-full)", fontSize: "0.68rem", fontWeight: 600 }}>
+            Community Member
+          </div>
         </div>
+
+        {/* Stats */}
         <div style={{ display: "flex", width: "100%", borderTop: "1px solid var(--border-color)", borderBottom: "1px solid var(--border-color)", padding: "8px 0", justifyContent: "space-around" }}>
           <div style={{ textAlign: "center" }}>
-            <div style={{ color: "var(--accent-primary)", fontWeight: 700, fontSize: "1.1rem" }}>{userPostCount}</div>
-            <div style={{ fontSize: "0.68rem", color: "var(--text-muted)" }}>Posts</div>
+            <div style={{ color: "var(--accent-primary)", fontWeight: 700, fontSize: "1rem" }}>{userPostCount}</div>
+            <div style={{ fontSize: "0.63rem", color: "var(--text-muted)" }}>Posts</div>
           </div>
           <div style={{ width: 1, backgroundColor: "var(--border-color)" }} />
           <div style={{ textAlign: "center" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 3 }}>
-              <span style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: "var(--accent-success)", boxShadow: "0 0 4px var(--accent-success)", display: "inline-block" }} />
-              <span style={{ color: "var(--accent-success)", fontWeight: 700, fontSize: "0.8rem" }}>Online</span>
-            </div>
-            <div style={{ fontSize: "0.68rem", color: "var(--text-muted)" }}>Status</div>
+            <div style={{ color: "var(--accent-primary)", fontWeight: 700, fontSize: "1rem" }}>{data.followersCount ?? 0}</div>
+            <div style={{ fontSize: "0.63rem", color: "var(--text-muted)" }}>Followers</div>
+          </div>
+          <div style={{ width: 1, backgroundColor: "var(--border-color)" }} />
+          <div style={{ textAlign: "center" }}>
+            <div style={{ color: "var(--accent-primary)", fontWeight: 700, fontSize: "1rem" }}>{data.followingCount ?? 0}</div>
+            <div style={{ fontSize: "0.63rem", color: "var(--text-muted)" }}>Following</div>
           </div>
         </div>
-        <button onClick={onClose} style={{ width: "100%", padding: "6px 0", background: "var(--bg-primary)", border: "1px solid var(--border-color)", borderRadius: "var(--radius-md)", color: "var(--text-secondary)", fontWeight: 500, fontSize: "0.8rem", cursor: "pointer", fontFamily: "inherit" }}>Close</button>
+
+        {/* Action buttons stacked */}
+        <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 7 }}>
+          {/* Follow / Unfollow — hidden for own profile */}
+          {!isSelf && currentUser && (
+            <button
+              onClick={handleFollow}
+              disabled={followLoading}
+              style={{
+                width: "100%", padding: "7px 0",
+                borderRadius: "var(--radius-md)",
+                border: isFollowing ? "1px solid var(--border-color)" : "none",
+                backgroundColor: isFollowing ? "transparent" : "var(--accent-primary)",
+                color: isFollowing ? "var(--text-secondary)" : "#000",
+                fontWeight: 700, fontSize: "0.82rem",
+                cursor: followLoading ? "not-allowed" : "pointer",
+                fontFamily: "inherit",
+                opacity: followLoading ? 0.7 : 1,
+                transition: "all 0.15s",
+              }}
+            >
+              {followLoading ? "…" : isFollowing ? "✓ Following" : "+ Follow"}
+            </button>
+          )}
+
+          {/* View Profile — navigates to /user/[uid] */}
+          {!isSelf && (
+            <button
+              onClick={handleViewProfile}
+              style={{
+                width: "100%", padding: "7px 0",
+                borderRadius: "var(--radius-md)",
+                border: "1px solid var(--accent-primary)",
+                backgroundColor: "var(--accent-primary-alpha)",
+                color: "var(--accent-primary)",
+                fontWeight: 600, fontSize: "0.82rem",
+                cursor: "pointer", fontFamily: "inherit",
+                transition: "all 0.15s",
+              }}
+            >
+              👤 View Profile
+            </button>
+          )}
+
+          {/* Close */}
+          <button
+            onClick={onClose}
+            style={{
+              width: "100%", padding: "6px 0",
+              background: "var(--bg-primary)",
+              border: "1px solid var(--border-color)",
+              borderRadius: "var(--radius-md)",
+              color: "var(--text-muted)",
+              fontWeight: 500, fontSize: "0.78rem",
+              cursor: "pointer", fontFamily: "inherit",
+            }}
+          >
+            Close
+          </button>
+        </div>
       </div>
     </>
   );
@@ -733,6 +825,8 @@ function ProfilePopup({ data, posts, onClose }) {
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 export default function Dashboard() {
   const { user } = useAuth();
+  const router = useRouter();
+
   const [content, setContent] = useState("");
   const [posts, setPosts] = useState([]);
   const [error, setError] = useState("");
@@ -740,8 +834,8 @@ export default function Dashboard() {
   const [showAiDraft, setShowAiDraft] = useState(false);
   const [selectedTags, setSelectedTags] = useState([]);
   const [customTag, setCustomTag] = useState("");
-  const [postType, setPostType] = useState("discussion"); // "discussion" | "question" | "collaboration"
-  const [activeTab, setActiveTab] = useState("latest"); // feed filter tab
+  const [postType, setPostType] = useState("discussion");
+  const [activeTab, setActiveTab] = useState("latest");
   const [openCommentsFor, setOpenCommentsFor] = useState(null);
   const [commentDraft, setCommentDraft] = useState("");
   const [editingId, setEditingId] = useState(null);
@@ -756,12 +850,13 @@ export default function Dashboard() {
   const [usersCache, setUsersCache] = useState({});
   const [profilePopup, setProfilePopup] = useState(null);
   const [highlightedPostId, setHighlightedPostId] = useState(null);
+  const [following, setFollowing] = useState([]);
+
   const highlightTimeoutRef = useRef(null);
   const scrolledRef = useRef(false);
 
-  // Mobile state — tabs now mirror the feed tabs
   const [isMobile, setIsMobile] = useState(false);
-  const [mobileTab, setMobileTab] = useState("feed"); // "feed" | "trending" | "questions" | "collaboration" | "members" | "saved"
+  const [mobileTab, setMobileTab] = useState("feed");
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 1024);
@@ -805,7 +900,15 @@ export default function Dashboard() {
       const unsub = onSnapshot(doc(db, "users", uid), (snap) => {
         if (snap.exists()) {
           const data = snap.data();
-          setUsersCache((prev) => ({ ...prev, [uid]: { photoURL: data.photoURL || "", displayName: data.displayName || "" } }));
+          setUsersCache((prev) => ({
+            ...prev,
+            [uid]: {
+              photoURL: data.photoURL || "",
+              displayName: data.displayName || "",
+              followersCount: (data.followers || []).length,
+              followingCount: (data.following || []).length,
+            },
+          }));
         }
       });
       unsubs.push(unsub);
@@ -814,9 +917,11 @@ export default function Dashboard() {
   }, [posts]);
 
   useEffect(() => {
-    if (!user) { setSavedPostIds([]); return; }
+    if (!user) { setSavedPostIds([]); setFollowing([]); return; }
     const unsubscribe = onSnapshot(doc(db, "users", user.uid), (snap) => {
-      setSavedPostIds(snap.data()?.savedPosts || []);
+      const data = snap.data() || {};
+      setSavedPostIds(data.savedPosts || []);
+      setFollowing(data.following || []);
     }, (err) => console.error(err));
     return () => unsubscribe();
   }, [user]);
@@ -829,7 +934,14 @@ export default function Dashboard() {
     return () => unsubscribe();
   }, []);
 
-  // ── Scroll-to / highlight ─────────────────────────────────────────────────
+  // Close popup on scroll
+  useEffect(() => {
+    if (!profilePopup) return;
+    const handleScroll = () => setProfilePopup(null);
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [profilePopup]);
+
   const scrollToHashPost = useCallback(() => {
     const hash = window.location.hash;
     if (!hash || !hash.startsWith("#post-")) return;
@@ -870,10 +982,15 @@ export default function Dashboard() {
   const getLiveName = useCallback((uid, fallback) => usersCache[uid]?.displayName || fallback || "Anonymous User", [usersCache]);
   const getLivePhoto = useCallback((uid, fallback) => usersCache[uid]?.photoURL ?? fallback ?? "", [usersCache]);
 
+  // Navigate to user profile page
+  const handleViewProfile = useCallback((uid) => {
+    router.push(`/user/${uid}`);
+  }, [router]);
+
   const openProfile = useCallback((e, uid, storedName, storedPhoto) => {
     e.stopPropagation();
     const rect = e.currentTarget.getBoundingClientRect();
-    const popupWidth = 240, popupHeight = 220, margin = 12;
+    const popupWidth = 224, popupHeight = 300, margin = 12;
     let x = rect.right + margin, y = rect.top + rect.height / 2;
     if (x + popupWidth > window.innerWidth - 16) x = rect.left - popupWidth - margin;
     const halfPopup = popupHeight / 2;
@@ -883,37 +1000,51 @@ export default function Dashboard() {
       uid,
       displayName: usersCache[uid]?.displayName || storedName || "Anonymous User",
       photoURL: usersCache[uid]?.photoURL ?? storedPhoto ?? "",
+      followersCount: usersCache[uid]?.followersCount ?? 0,
+      followingCount: usersCache[uid]?.followingCount ?? 0,
       x, y,
       flipped: rect.right + margin + popupWidth > window.innerWidth - 16,
     });
   }, [usersCache]);
 
-  // ── Computed filtered feed ────────────────────────────────────────────────
+  // Follow / Unfollow handler — notifies the target user when followed (not on unfollow)
+  const handleFollowToggle = useCallback(async (targetUid, isCurrentlyFollowing) => {
+    if (!user || !targetUid || targetUid === user.uid) return;
+    try {
+      await setDoc(doc(db, "users", user.uid), {
+        following: isCurrentlyFollowing ? arrayRemove(targetUid) : arrayUnion(targetUid),
+      }, { merge: true });
+      await setDoc(doc(db, "users", targetUid), {
+        followers: isCurrentlyFollowing ? arrayRemove(user.uid) : arrayUnion(user.uid),
+      }, { merge: true });
+
+      if (!isCurrentlyFollowing) {
+        await createNotification({ toUid: targetUid, fromUser: user, type: "follow" });
+      }
+    } catch (err) {
+      console.error("Follow toggle failed:", err);
+      setError("Failed to update follow status.");
+    }
+  }, [user]);
+
   const filteredPosts = useMemo(() => {
     if (activeTab === "latest") return posts;
     if (activeTab === "questions") return posts.filter((p) => p.postType === "question");
     if (activeTab === "collaboration") return posts.filter((p) => p.postType === "collaboration");
-    return posts; // trending handled separately
+    return posts;
   }, [posts, activeTab]);
 
-  // Trending: most liked in last 48 hours
   const trendingPosts = useMemo(() => {
     const cutoff = Date.now() - 48 * 60 * 60 * 1000;
     return posts
-      .filter((p) => {
-        const ts = p.timestamp?.toDate ? p.timestamp.toDate().getTime() : 0;
-        return ts >= cutoff;
-      })
+      .filter((p) => { const ts = p.timestamp?.toDate ? p.timestamp.toDate().getTime() : 0; return ts >= cutoff; })
       .sort((a, b) => (b.likes || 0) - (a.likes || 0))
       .slice(0, 10);
   }, [posts]);
 
-  // Trending tags (for sidebar widget)
   const trendingTags = useMemo(() => {
-    const counts = {};
-    const newToday = {};
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
+    const counts = {}, newToday = {};
+    const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
     posts.forEach((post) => {
       const postDate = post.timestamp?.toDate ? post.timestamp.toDate() : null;
       const isToday = postDate && postDate >= startOfToday;
@@ -923,8 +1054,7 @@ export default function Dashboard() {
       });
     });
     return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([tag, count]) => ({
-      tag,
-      posts: `${count} post${count === 1 ? "" : "s"}`,
+      tag, posts: `${count} post${count === 1 ? "" : "s"}`,
       new: newToday[tag] ? `+${newToday[tag]} new today` : "No new posts today",
     }));
   }, [posts]);
@@ -941,34 +1071,26 @@ export default function Dashboard() {
   const handleCreatePost = async () => {
     if (!content.trim() || !user) return;
     try {
-      setPosting(true);
-      setError("");
+      setPosting(true); setError("");
       await addDoc(collection(db, "posts"), {
         uid: user.uid,
         displayName: user.displayName || user.email || "Anonymous User",
         photoURL: user.photoURL || "",
         content: content.trim(),
         tags: selectedTags,
-        postType, // "discussion" | "question" | "collaboration"
+        postType,
         timestamp: serverTimestamp(),
-        likes: 0,
-        likedBy: [],
-        comments: [],
+        likes: 0, likedBy: [], comments: [],
       });
-      setContent("");
-      setSelectedTags([]);
-      setPostType("discussion");
-    } catch (err) {
-      console.error(err);
-      setError("Failed to create post. Please try again.");
-    } finally {
-      setPosting(false);
-    }
+      setContent(""); setSelectedTags([]); setPostType("discussion");
+    } catch (err) { console.error(err); setError("Failed to create post. Please try again."); }
+    finally { setPosting(false); }
   };
 
   const handleInsertCode = (codeBlock) => { setContent((prev) => prev + (prev ? "\n\n" : "") + codeBlock); setShowCodeEditor(false); };
   const toggleTag = (tag) => setSelectedTags((prev) => prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]);
 
+  // Like / unlike — notifies the post owner only when a like is newly added
   const handleToggleLike = async (post) => {
     if (!user) return;
     const liked = (post.likedBy || []).includes(user.uid);
@@ -977,6 +1099,15 @@ export default function Dashboard() {
         likedBy: liked ? arrayRemove(user.uid) : arrayUnion(user.uid),
         likes: (post.likedBy || []).length + (liked ? -1 : 1),
       });
+
+      if (!liked) {
+        await createNotification({
+          toUid: post.uid,
+          fromUser: user,
+          type: "like",
+          postId: post.id,
+        });
+      }
     } catch (err) { console.error(err); setError("Failed to update like."); }
   };
 
@@ -990,7 +1121,8 @@ export default function Dashboard() {
 
   const handleDeletePost = async (postId) => {
     if (!window.confirm("Delete this post? This cannot be undone.")) return;
-    try { await deleteDoc(doc(db, "posts", postId)); } catch (err) { console.error(err); setError("Failed to delete post."); }
+    try { await deleteDoc(doc(db, "posts", postId)); }
+    catch (err) { console.error(err); setError("Failed to delete post."); }
   };
 
   const startEdit = (post) => { setEditingId(post.id); setEditContent(post.content); };
@@ -1003,19 +1135,46 @@ export default function Dashboard() {
 
   const toggleComments = (postId) => { setOpenCommentsFor((prev) => (prev === postId ? null : postId)); setCommentDraft(""); setEditingComment(null); };
 
+  // Adding a comment — notifies the post owner
   const handleAddComment = async (post) => {
     if (!commentDraft.trim() || !user) return;
-    const newComment = { uid: user.uid, displayName: user.displayName || user.email || "Anonymous User", photoURL: user.photoURL || "", content: commentDraft.trim(), createdAt: Date.now(), edited: false };
-    try { await updateDoc(doc(db, "posts", post.id), { comments: arrayUnion(newComment) }); setCommentDraft(""); }
+    const trimmed = commentDraft.trim();
+    const newComment = { uid: user.uid, displayName: user.displayName || user.email || "Anonymous User", photoURL: user.photoURL || "", content: trimmed, createdAt: Date.now(), edited: false };
+    try {
+      await updateDoc(doc(db, "posts", post.id), { comments: arrayUnion(newComment) });
+      setCommentDraft("");
+
+      await createNotification({
+        toUid: post.uid,
+        fromUser: user,
+        type: "comment",
+        postId: post.id,
+        preview: trimmed,
+      });
+    }
     catch (err) { console.error(err); setError("Failed to add comment."); }
   };
 
   const startEditComment = (comment) => { setEditingComment({ postId: comment._postId, createdAt: comment.createdAt }); setEditingCommentDraft(comment.content); };
   const cancelEditComment = () => { setEditingComment(null); setEditingCommentDraft(""); };
+
+  // Editing a comment — notifies the post owner that the comment changed
   const handleSaveCommentEdit = async (post, oldComment) => {
     if (!editingCommentDraft.trim()) return;
-    const updatedComments = (post.comments || []).map((c) => c.createdAt === oldComment.createdAt && c.uid === oldComment.uid ? { ...c, content: editingCommentDraft.trim(), edited: true } : c);
-    try { await updateDoc(doc(db, "posts", post.id), { comments: updatedComments }); setEditingComment(null); setEditingCommentDraft(""); }
+    const trimmed = editingCommentDraft.trim();
+    const updatedComments = (post.comments || []).map((c) => c.createdAt === oldComment.createdAt && c.uid === oldComment.uid ? { ...c, content: trimmed, edited: true } : c);
+    try {
+      await updateDoc(doc(db, "posts", post.id), { comments: updatedComments });
+      setEditingComment(null); setEditingCommentDraft("");
+
+      await createNotification({
+        toUid: post.uid,
+        fromUser: user,
+        type: "comment_edit",
+        postId: post.id,
+        preview: trimmed,
+      });
+    }
     catch (err) { console.error(err); setError("Failed to edit comment."); }
   };
   const handleDeleteComment = async (post, comment) => {
@@ -1025,7 +1184,7 @@ export default function Dashboard() {
     catch (err) { console.error(err); setError("Failed to delete comment."); }
   };
 
-  // ── Post card renderer ────────────────────────────────────────────────────
+  // ── Post card ─────────────────────────────────────────────────────────────
   const renderPost = (post, postIndex) => {
     const postPhoto = getLivePhoto(post.uid, post.photoURL);
     const postName = getLiveName(post.uid, post.displayName);
@@ -1041,9 +1200,18 @@ export default function Dashboard() {
       >
         <div style={S.cardHeader}>
           <div style={S.authorInfo}>
-            <UserAvatar photoURL={postPhoto} displayName={postName} size={isMobile ? 34 : 40} fontSize={isMobile ? "0.85rem" : "1rem"} onClick={(e) => openProfile(e, post.uid, post.displayName, post.photoURL)} />
+            <UserAvatar
+              photoURL={postPhoto} displayName={postName}
+              size={isMobile ? 34 : 40} fontSize={isMobile ? "0.85rem" : "1rem"}
+              onClick={(e) => openProfile(e, post.uid, post.displayName, post.photoURL)}
+            />
             <div style={S.authorMeta}>
-              <span style={{ ...S.authorName, cursor: "pointer" }} onClick={(e) => openProfile(e, post.uid, post.displayName, post.photoURL)}>{postName}</span>
+              <span
+                style={{ ...S.authorName, cursor: "pointer" }}
+                onClick={(e) => openProfile(e, post.uid, post.displayName, post.photoURL)}
+              >
+                {postName}
+              </span>
               <span style={S.authorTitle}>Community Member</span>
             </div>
           </div>
@@ -1085,7 +1253,9 @@ export default function Dashboard() {
         )}
 
         <div style={S.postTags}>
-          {post.tags && post.tags.length > 0 ? post.tags.map((tag) => <a href="#" style={S.postTag} key={tag}>{tag}</a>) : <a href="#" style={S.postTag}>#community</a>}
+          {post.tags && post.tags.length > 0
+            ? post.tags.map((tag) => <a href="#" style={S.postTag} key={tag}>{tag}</a>)
+            : <a href="#" style={S.postTag}>#community</a>}
         </div>
 
         <div id={postIndex === 0 ? "post-actions-0" : undefined} style={S.postActions}>
@@ -1125,11 +1295,22 @@ export default function Dashboard() {
                       <div style={S.commentMeta}>
                         <span>{new Date(c.createdAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
                         {c.edited && <span style={{ fontStyle: "italic" }}>(edited)</span>}
-                        {isOwner && !isEditingThis && (<><button style={S.btnActionDanger} onClick={() => startEditComment({ ...c, _postId: post.id })}>✏️</button><button style={S.btnActionDanger} onClick={() => handleDeleteComment(post, c)}>🗑️</button></>)}
+                        {isOwner && !isEditingThis && (
+                          <>
+                            <button style={S.btnActionDanger} onClick={() => startEditComment({ ...c, _postId: post.id })}>✏️</button>
+                            <button style={S.btnActionDanger} onClick={() => handleDeleteComment(post, c)}>🗑️</button>
+                          </>
+                        )}
                       </div>
                     </div>
                     {isEditingThis ? (
-                      <><textarea style={S.commentEditTextarea} value={editingCommentDraft} onChange={(e) => setEditingCommentDraft(e.target.value)} autoFocus /><div style={S.commentEditActions}><button style={S.btnSm} onClick={() => handleSaveCommentEdit(post, c)}>Save</button><button style={S.btnSmGhost} onClick={cancelEditComment}>Cancel</button></div></>
+                      <>
+                        <textarea style={S.commentEditTextarea} value={editingCommentDraft} onChange={(e) => setEditingCommentDraft(e.target.value)} autoFocus />
+                        <div style={S.commentEditActions}>
+                          <button style={S.btnSm} onClick={() => handleSaveCommentEdit(post, c)}>Save</button>
+                          <button style={S.btnSmGhost} onClick={cancelEditComment}>Cancel</button>
+                        </div>
+                      </>
                     ) : (
                       <p style={{ ...S.commentBody, margin: 0 }}>{c.content}</p>
                     )}
@@ -1160,18 +1341,11 @@ export default function Dashboard() {
           <textarea style={S.composerTextarea} placeholder="Share a coding question, project idea, or debugging help..." value={content} onChange={(e) => setContent(e.target.value)} />
         </div>
       </div>
-
-      {/* Post type selector */}
       <div style={S.postTypeRow}>
-        {[
-          { id: "discussion", label: "💬 Discussion" },
-          { id: "question", label: "❔ Question" },
-          { id: "collaboration", label: "🤝 Collaborate" },
-        ].map(({ id, label }) => (
+        {[{ id: "discussion", label: "💬 Discussion" }, { id: "question", label: "❔ Question" }, { id: "collaboration", label: "🤝 Collaborate" }].map(({ id, label }) => (
           <button key={id} style={S.postTypeBtn(postType === id)} onClick={() => setPostType(id)} type="button">{label}</button>
         ))}
       </div>
-
       <div id="composer-tags" style={S.composerTagsInput}>
         {availableTags.map((tag) => (
           <span key={tag} onClick={() => toggleTag(tag)} style={{ ...(selectedTags.includes(tag) ? S.tagBadgeSelected : S.tagBadge), userSelect: "none" }}>{tag}</span>
@@ -1184,9 +1358,7 @@ export default function Dashboard() {
           <button onClick={addCustomTag} type="button" style={{ ...S.tagBadge, cursor: "pointer", border: "1px solid var(--accent-primary)", color: "var(--accent-primary)" }}>+ Add</button>
         </div>
       </div>
-
       {error && <p style={{ color: "red", margin: 0 }}>{error}</p>}
-
       <div style={S.composerActions}>
         <div style={S.composerTools}>
           <button style={S.composerToolBtn} title="Add Image">🖼️</button>
@@ -1203,95 +1375,60 @@ export default function Dashboard() {
           {posting ? "Posting..." : "Post"}
         </button>
       </div>
-
       {showAiDraft && (
         <AIDraftAssistant onInsert={(draft) => { setContent((prev) => (prev ? prev + "\n\n" + draft : draft)); setShowAiDraft(false); }} />
       )}
     </div>
   );
 
-  // ── Trending posts view ───────────────────────────────────────────────────
   const trendingFeedJSX = (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <div style={{ fontSize: "0.78rem", color: "var(--text-muted)", padding: "0 2px" }}>
-        🔥 Most liked posts in the last 48 hours
-      </div>
-      {trendingPosts.length === 0 ? (
-        <div style={S.emptyState}>
-          <div style={{ fontSize: "2rem" }}>📭</div>
-          <div style={{ fontWeight: 600, color: "var(--text-secondary)" }}>No trending posts yet</div>
-          <div style={{ fontSize: "0.85rem" }}>Posts liked in the last 48 hours will appear here.</div>
-        </div>
-      ) : (
-        trendingPosts.map((post, i) => renderPost(post, i))
-      )}
+      <div style={{ fontSize: "0.78rem", color: "var(--text-muted)", padding: "0 2px" }}>🔥 Most liked posts in the last 48 hours</div>
+      {trendingPosts.length === 0
+        ? <div style={S.emptyState}><div style={{ fontSize: "2rem" }}>📭</div><div style={{ fontWeight: 600, color: "var(--text-secondary)" }}>No trending posts yet</div><div style={{ fontSize: "0.85rem" }}>Posts liked in the last 48 hours will appear here.</div></div>
+        : trendingPosts.map((post, i) => renderPost(post, i))}
     </div>
   );
 
-  // ── Questions view ────────────────────────────────────────────────────────
   const questionsFeedJSX = (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <div style={{ fontSize: "0.78rem", color: "var(--text-muted)", padding: "0 2px" }}>
-        ❔ Questions from the community — help someone out!
-      </div>
-      {filteredPosts.length === 0 ? (
-        <div style={S.emptyState}>
-          <div style={{ fontSize: "2rem" }}>🙋</div>
-          <div style={{ fontWeight: 600, color: "var(--text-secondary)" }}>No questions yet</div>
-          <div style={{ fontSize: "0.85rem" }}>Post a question using the composer above.</div>
-        </div>
-      ) : (
-        filteredPosts.map((post, i) => renderPost(post, i))
-      )}
+      <div style={{ fontSize: "0.78rem", color: "var(--text-muted)", padding: "0 2px" }}>❔ Questions from the community — help someone out!</div>
+      {filteredPosts.length === 0
+        ? <div style={S.emptyState}><div style={{ fontSize: "2rem" }}>🙋</div><div style={{ fontWeight: 600, color: "var(--text-secondary)" }}>No questions yet</div><div style={{ fontSize: "0.85rem" }}>Post a question using the composer above.</div></div>
+        : filteredPosts.map((post, i) => renderPost(post, i))}
     </div>
   );
 
-  // ── Collaborate view ──────────────────────────────────────────────────────
   const collaborateFeedJSX = (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <div style={{ fontSize: "0.78rem", color: "var(--text-muted)", padding: "0 2px" }}>
-        🤝 Find developers to build something together
-      </div>
-      {filteredPosts.length === 0 ? (
-        <div style={S.emptyState}>
-          <div style={{ fontSize: "2rem" }}>🚀</div>
-          <div style={{ fontWeight: 600, color: "var(--text-secondary)" }}>No collaboration posts yet</div>
-          <div style={{ fontSize: "0.85rem" }}>Post a collaboration request using the composer above.</div>
-        </div>
-      ) : (
-        filteredPosts.map((post, i) => renderPost(post, i))
-      )}
+      <div style={{ fontSize: "0.78rem", color: "var(--text-muted)", padding: "0 2px" }}>🤝 Find developers to build something together</div>
+      {filteredPosts.length === 0
+        ? <div style={S.emptyState}><div style={{ fontSize: "2rem" }}>🚀</div><div style={{ fontWeight: 600, color: "var(--text-secondary)" }}>No collaboration posts yet</div><div style={{ fontSize: "0.85rem" }}>Post a collaboration request using the composer above.</div></div>
+        : filteredPosts.map((post, i) => renderPost(post, i))}
     </div>
   );
 
-  // ── Feed section with filters ─────────────────────────────────────────────
   const feedJSX = (
     <section style={S.feedColumn}>
       {composerJSX}
-
-      {/* Feed filter tabs */}
       <div style={S.feedFiltersBar}>
         {FEED_TABS.map(({ id, label }) => (
           <button key={id} style={activeTab === id ? S.filterTabActive : S.filterTab} onClick={() => setActiveTab(id)}>{label}</button>
         ))}
       </div>
-
-      {/* Conditional feed content */}
       {activeTab === "trending" && trendingFeedJSX}
       {activeTab === "questions" && questionsFeedJSX}
       {activeTab === "collaboration" && collaborateFeedJSX}
-      {(activeTab === "latest") && (
+      {activeTab === "latest" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {posts.length === 0
             ? <p style={{ color: "var(--text-muted)" }}>No posts yet. Create the first post!</p>
-            : posts.map((post, i) => renderPost(post, i))
-          }
+            : posts.map((post, i) => renderPost(post, i))}
         </div>
       )}
     </section>
   );
 
-  // ── Sidebar widgets ───────────────────────────────────────────────────────
   const trendingWidgetJSX = (
     <div style={isMobile ? {} : S.sidebarWidget}>
       {!isMobile && <h3 style={S.widgetTitle}>Trending Tags</h3>}
@@ -1329,11 +1466,9 @@ export default function Dashboard() {
     </div>
   );
 
-  // ── Mobile tab content ────────────────────────────────────────────────────
   const renderMobileTabContent = () => {
     switch (mobileTab) {
-      case "feed":
-        return feedJSX;
+      case "feed": return feedJSX;
       case "trending":
         return (
           <div style={S.sidebarWidget}>
@@ -1401,12 +1536,7 @@ export default function Dashboard() {
           </div>
         );
       case "members":
-        return (
-          <div style={S.sidebarWidget}>
-            <h3 style={S.widgetTitle}>Active Members</h3>
-            {membersWidgetJSX}
-          </div>
-        );
+        return (<div style={S.sidebarWidget}><h3 style={S.widgetTitle}>Active Members</h3>{membersWidgetJSX}</div>);
       case "saved":
         return (
           <div style={S.sidebarWidget}>
@@ -1429,12 +1559,10 @@ export default function Dashboard() {
               )}
           </div>
         );
-      default:
-        return feedJSX;
+      default: return feedJSX;
     }
   };
 
-  // Mobile tabs config
   const mobileTabs = [
     { id: "feed", icon: "▦", label: "Feed" },
     { id: "trending", icon: "🔥", label: "Trending" },
@@ -1450,10 +1578,8 @@ export default function Dashboard() {
         <div style={S.appContainer}>
           <Navbar variant="dashboard" />
 
-          {/* ── Desktop Layout ─────────────────────────────────────── */}
           {!isMobile && (
             <div style={S.mainLayout}>
-              {/* Left Sidebar */}
               <aside style={S.leftSidebar}>
                 <ul style={S.sidebarNavList}>
                   {FEED_TABS.map(({ id, label, icon }) => (
@@ -1483,7 +1609,6 @@ export default function Dashboard() {
 
               {feedJSX}
 
-              {/* Right Sidebar */}
               <aside style={S.rightSidebar}>
                 <div id="ai-copilot-widget" style={S.aiPromoWidget}>
                   <h3 style={S.widgetTitleAi}><span>Code Review Copilot</span><span style={S.pulsePoint} /></h3>
@@ -1502,10 +1627,8 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* ── Mobile Layout ──────────────────────────────────────── */}
           {isMobile && (
             <div style={S.mainLayoutMobile}>
-              {/* AI Copilot banner on feed tab */}
               {mobileTab === "feed" && (
                 <div style={{ ...S.aiPromoWidget, padding: "14px 16px" }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -1525,7 +1648,6 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* ── Mobile Bottom Tab Bar ─────────────────────────────────── */}
         {isMobile && (
           <nav style={S.bottomTabBar}>
             {mobileTabs.map(({ id, icon, label, badge }) => (
@@ -1548,7 +1670,16 @@ export default function Dashboard() {
       <CodeEditorModal isOpen={showCodeEditor} onClose={() => setShowCodeEditor(false)} onInsert={handleInsertCode} />
       {showSavedPosts && !isMobile && <SavedPosts onClose={() => setShowSavedPosts(false)} onUnsave={(postId) => handleToggleSave(postId)} />}
       {showFeatureTour && <FeatureTour onClose={closeFeatureTour} />}
-      <ProfilePopup data={profilePopup} posts={posts} onClose={() => setProfilePopup(null)} />
+
+      <ProfilePopup
+        data={profilePopup}
+        posts={posts}
+        currentUser={user}
+        following={following}
+        onClose={() => setProfilePopup(null)}
+        onFollowToggle={handleFollowToggle}
+        onViewProfile={handleViewProfile}
+      />
     </ProtectedRoute>
   );
 }

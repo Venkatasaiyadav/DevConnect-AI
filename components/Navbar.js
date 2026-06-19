@@ -7,6 +7,7 @@ import { useTheme } from "../context/ThemeContext";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { db } from "../lib/firebase";
 import { collection, query, orderBy, limit, getDocs } from "firebase/firestore";
+import Notifications from "./Notifications";
 
 const S = {
   // ── Landing navbar ──────────────────────────────────────────────────────────
@@ -408,9 +409,6 @@ function highlightMatch(text, query) {
 }
 
 // ── Shared search logic ──────────────────────────────────────────────────────
-// Pulls the latest posts once per mount and filters them client-side as the
-// user types. This keeps things snappy (no per-keystroke Firestore reads)
-// while still searching real post content, tags, and author names.
 function useSearch() {
   const [allPosts, setAllPosts] = useState([]);
   const [loaded, setLoaded] = useState(false);
@@ -636,6 +634,7 @@ const goToPost = useCallback((post) => {
 
               {user ? (
                 <>
+                  <Notifications />
                   <Link href="/dashboard" style={S.btnNavCta}>Open Community App</Link>
                   <Link
                     href="/profile"
@@ -670,6 +669,7 @@ const goToPost = useCallback((post) => {
           {/* Mobile right side */}
           {isMobile && (
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              {user && <Notifications isMobile />}
               <button onClick={toggleTheme} style={S.themeToggleBtn} title="Toggle theme">
                 {isDarkMode ? "☀️" : "🌙"}
               </button>
@@ -820,7 +820,9 @@ const goToPost = useCallback((post) => {
         {!isMobile && (
           <button style={S.btnIcon} title="AI Code Review Alerts">✨</button>
         )}
-        <button style={S.btnIcon} title="Notifications">🔔</button>
+
+        {/* Notifications bell — shows a blue dot when there are unread items */}
+        <Notifications isMobile={isMobile} />
 
         <button
           onClick={toggleTheme}

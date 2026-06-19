@@ -1,43 +1,48 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
-import { 
-  onAuthStateChanged, 
-  signInWithPopup, 
+import {
+  onAuthStateChanged,
+  signInWithPopup,
   signOut,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
-  updateProfile
+  updateProfile,
 } from "firebase/auth";
-import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";                 //Imported updateDoc
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db, googleProvider, githubProvider } from "../lib/firebase";
 
 const AuthContext = createContext({});
 
 export const useAuth = () => useContext(AuthContext);
 
+// Errors that are expected and don't need to surface to the user
+const SILENT_ERRORS = new Set([
+  "auth/cancelled-popup-request",  // user opened popup twice — Firebase auto-cancels the first
+  "auth/popup-closed-by-user",     // user closed the popup themselves
+]);
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Save user data to Firestore on first login
   const saveUserToFirestore = async (userResult) => {
     if (!userResult) return;
     const userRef = doc(db, "users", userResult.uid);
-
-    await setDoc(userRef, {
-      uid: userResult.uid,
-      email: userResult.email,
-      displayName: userResult.displayName,
-      photoURL: userResult.photoURL,
-      createdAt: serverTimestamp(),
-      isOnline: true,                             //Added to fix Realtime Active Members
-      lastSeen: serverTimestamp(),                // if User Logs in mark them Online
+    await setDoc(
+      userRef,
+      {
+        uid: userResult.uid,
+        email: userResult.email,
+        displayName: userResult.displayName,
+        photoURL: userResult.photoURL,
+        createdAt: serverTimestamp(),
+        isOnline: true,
+        lastSeen: serverTimestamp(),
       },
-      {merge: true}
-   );
-     
+      { merge: true }
+    );
   };
 
   const loginWithGoogle = async () => {
@@ -46,6 +51,7 @@ export const AuthProvider = ({ children }) => {
       await saveUserToFirestore(result.user);
       return result.user;
     } catch (error) {
+      if (SILENT_ERRORS.has(error.code)) return null; // not a real error, ignore silently
       console.error("Google login error:", error);
       throw error;
     }
@@ -57,6 +63,7 @@ export const AuthProvider = ({ children }) => {
       await saveUserToFirestore(result.user);
       return result.user;
     } catch (error) {
+      if (SILENT_ERRORS.has(error.code)) return null;
       console.error("GitHub login error:", error);
       throw error;
     }
@@ -64,20 +71,11 @@ export const AuthProvider = ({ children }) => {
 
   const signupWithEmail = async (email, password, displayName) => {
     try {
-      const result = await createUserWithEmailAndPassword(
-        auth,
-        email,
-        password
-      );
-
+      const result = await createUserWithEmailAndPassword(auth, email, password);
       if (displayName?.trim()) {
-        await updateProfile(result.user, {
-          displayName: displayName.trim(),
-        });
+        await updateProfile(result.user, { displayName: displayName.trim() });
       }
-
       await saveUserToFirestore(result.user);
-
       return result.user;
     } catch (error) {
       throw error;
@@ -87,9 +85,7 @@ export const AuthProvider = ({ children }) => {
   const loginWithEmail = async (email, password) => {
     try {
       const result = await signInWithEmailAndPassword(auth, email, password);
-
       await saveUserToFirestore(result.user);
-
       return result.user;
     } catch (error) {
       console.error("Email login error:", error);
@@ -100,12 +96,11 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     try {
       if (user) {
-        await updateDoc(doc(db, "users", user.uid), {       //Updated for realtime active user
-          isOnline: false,                                  //Before signing out mark user offline
+        await updateDoc(doc(db, "users", user.uid), {
+          isOnline: false,
           lastSeen: serverTimestamp(),
         });
       }
-
       await signOut(auth);
     } catch (error) {
       console.error("Logout error:", error);
@@ -127,12 +122,13 @@ export const AuthProvider = ({ children }) => {
       setUser(currentUser);
       setLoading(false);
     });
-
     return () => unsubscribe();
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loginWithGoogle, loginWithGithub, signupWithEmail, loginWithEmail, logout, resetPassword, loading }}>
+    <AuthContext.Provider
+      value={{ user, loginWithGoogle, loginWithGithub, signupWithEmail, loginWithEmail, logout, resetPassword, loading }}
+    >
       {!loading && children}
     </AuthContext.Provider>
   );
