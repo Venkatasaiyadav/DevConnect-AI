@@ -2,19 +2,19 @@
 
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import Navbar from "../components/Navbar";
-import ProtectedRoute from "../components/ProtectedRoute";
-import CodeEditorModal from "../components/CodeEditorModal";
-import SavedPosts from "../components/SavedPosts";
-import FeatureTour from "../components/FeatureTour";
-import { useAuth } from "../context/AuthContext";
-import { db } from "../lib/firebase";
-import { createNotification } from "../lib/notifications";
-import ProfilePopup from "../components/dashboard/ProfilePopup";
-import LeftSidebar from "../components/dashboard/LeftSidebar";
-import RightSidebar from "../components/dashboard/RightSidebar";
-import FeedColumn from "../components/dashboard/FeedColumn";
-import MobileView from "../components/dashboard/MobileView";
+import Navbar from "../../components/Navbar";
+import ProtectedRoute from "../../components/ProtectedRoute";
+import CodeEditorModal from "../../components/CodeEditorModal";
+import SavedPosts from "../../components/SavedPosts";
+import FeatureTour from "../../components/FeatureTour";
+import { useAuth } from "../../context/AuthContext";
+import { db } from "../../lib/firebase";
+import { createNotification } from "../../lib/notifications";
+import ProfilePopup from "../../components/dashboard/ProfilePopup";
+import LeftSidebar from "../../components/dashboard/LeftSidebar";
+import RightSidebar from "../../components/dashboard/RightSidebar";
+import FeedColumn from "../../components/dashboard/FeedColumn";
+import MobileView from "../../components/dashboard/MobileView";
 import {
   collection,
   addDoc,
