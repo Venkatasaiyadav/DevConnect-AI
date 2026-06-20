@@ -22,6 +22,7 @@ import {
   updateDoc,
   setDoc,
   doc,
+  getDoc,
   query,
   where,
   orderBy,
@@ -52,6 +53,27 @@ const S = {
   },
 };
 
+// ── Streak helper ─────────────────────────────────────────────────────────────
+async function updateStreak(uid) {
+  const userRef = doc(db, "users", uid);
+  const snap = await getDoc(userRef);
+  const data = snap.exists() ? snap.data() : {};
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const lastActiveStr = data.lastActiveDate || "";
+  const currentStreak = data.streak || 0;
+
+  if (lastActiveStr === todayStr) return;
+
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = yesterday.toISOString().slice(0, 10);
+
+  const newStreak = lastActiveStr === yesterdayStr ? currentStreak + 1 : 1;
+
+  await setDoc(userRef, { streak: newStreak, lastActiveDate: todayStr }, { merge: true });
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
   const router = useRouter();
@@ -77,6 +99,7 @@ export default function Dashboard() {
   const [savedPostIds, setSavedPostIds] = useState([]);
   const [showSavedPosts, setShowSavedPosts] = useState(false);
   const [showFeatureTour, setShowFeatureTour] = useState(false);
+  const [streak, setStreak] = useState(0);
 
   // ── Post editing state ───────────────────────────────────────────────────
   const [editingId, setEditingId] = useState(null);
@@ -93,12 +116,16 @@ export default function Dashboard() {
   const [mobileTab, setMobileTab] = useState("feed");
 
   const highlightTimeoutRef = useRef(null);
-  const isMobileRef = useRef(false); 
+  const isMobileRef = useRef(false);
   const scrolledRef = useRef(false);
 
   // ── Responsive detection ─────────────────────────────────────────────────
   useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 1024);
+    const check = () => {
+      const mobile = window.innerWidth < 1024;
+      setIsMobile(mobile);
+      isMobileRef.current = mobile;
+    };
     check();
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
@@ -106,7 +133,10 @@ export default function Dashboard() {
 
   // ── Feature tour ─────────────────────────────────────────────────────────
   useEffect(() => {
-    try { const seen = localStorage.getItem(FEATURE_TOUR_KEY); if (!seen) setShowFeatureTour(true); } catch { }
+    try {
+      const seen = localStorage.getItem(FEATURE_TOUR_KEY);
+      if (!seen) setShowFeatureTour(true);
+    } catch { }
   }, []);
 
   const closeFeatureTour = () => {
@@ -123,7 +153,7 @@ export default function Dashboard() {
     return () => unsubscribe();
   }, []);
 
-  // ── Firebase: users cache (for live avatars/names) ────────────────────────
+  // ── Firebase: users cache ─────────────────────────────────────────────────
   useEffect(() => {
     const uids = new Set();
     posts.forEach((p) => {
@@ -151,13 +181,14 @@ export default function Dashboard() {
     return () => unsubs.forEach((u) => u());
   }, [posts]);
 
-  // ── Firebase: current user's saved posts + following ──────────────────────
+  // ── Firebase: current user's saved posts + following + streak ─────────────
   useEffect(() => {
-    if (!user) { setSavedPostIds([]); setFollowing([]); return; }
+    if (!user) { setSavedPostIds([]); setFollowing([]); setStreak(0); return; }
     const unsubscribe = onSnapshot(doc(db, "users", user.uid), (snap) => {
       const data = snap.data() || {};
       setSavedPostIds(data.savedPosts || []);
       setFollowing(data.following || []);
+      setStreak(data.streak || 0);
     }, (err) => console.error(err));
     return () => unsubscribe();
   }, [user]);
@@ -209,17 +240,6 @@ export default function Dashboard() {
   }, [posts, scrollToHashPost]);
 
   useEffect(() => {
-  const check = () => {
-    const mobile = window.innerWidth < 1024;
-    setIsMobile(mobile);
-    isMobileRef.current = mobile; // ← add this line
-  };
-  check();
-  window.addEventListener("resize", check);
-  return () => window.removeEventListener("resize", check);
-}, []);
-
-  useEffect(() => {
     const handler = () => { scrolledRef.current = false; scrollToHashPost(); };
     window.addEventListener("hashchange", handler);
     window.addEventListener("dashboard-scroll-request", handler);
@@ -246,33 +266,29 @@ export default function Dashboard() {
   // ── Profile popup ─────────────────────────────────────────────────────────
   const handleViewProfile = useCallback((uid) => { router.push(`/user/${uid}`); }, [router]);
 
- // ── Profile popup (desktop) / direct navigation (mobile) ─────────────────
-const openProfile = useCallback((e, uid, storedName, storedPhoto) => {
-  e.stopPropagation();
-
-  // Use ref so we always get the live value, not a stale closure
-  if (isMobileRef.current) {
-    router.push(`/user/${uid}`);
-    return;
-  }
-
-  const rect = e.currentTarget.getBoundingClientRect();
-  const popupWidth = 224, popupHeight = 300, margin = 12;
-  let x = rect.right + margin, y = rect.top + rect.height / 2;
-  if (x + popupWidth > window.innerWidth - 16) x = rect.left - popupWidth - margin;
-  const halfPopup = popupHeight / 2;
-  if (y - halfPopup < 8) y = halfPopup + 8;
-  if (y + halfPopup > window.innerHeight - 8) y = window.innerHeight - halfPopup - 8;
-  setProfilePopup({
-    uid,
-    displayName: usersCache[uid]?.displayName || storedName || "Anonymous User",
-    photoURL: usersCache[uid]?.photoURL ?? storedPhoto ?? "",
-    followersCount: usersCache[uid]?.followersCount ?? 0,
-    followingCount: usersCache[uid]?.followingCount ?? 0,
-    x, y,
-    flipped: rect.right + margin + popupWidth > window.innerWidth - 16,
-  });
-}, [usersCache, router]); // ← removed isMobile, ref is always current
+  const openProfile = useCallback((e, uid, storedName, storedPhoto) => {
+    e.stopPropagation();
+    if (isMobileRef.current) {
+      router.push(`/user/${uid}`);
+      return;
+    }
+    const rect = e.currentTarget.getBoundingClientRect();
+    const popupWidth = 224, popupHeight = 300, margin = 12;
+    let x = rect.right + margin, y = rect.top + rect.height / 2;
+    if (x + popupWidth > window.innerWidth - 16) x = rect.left - popupWidth - margin;
+    const halfPopup = popupHeight / 2;
+    if (y - halfPopup < 8) y = halfPopup + 8;
+    if (y + halfPopup > window.innerHeight - 8) y = window.innerHeight - halfPopup - 8;
+    setProfilePopup({
+      uid,
+      displayName: usersCache[uid]?.displayName || storedName || "Anonymous User",
+      photoURL: usersCache[uid]?.photoURL ?? storedPhoto ?? "",
+      followersCount: usersCache[uid]?.followersCount ?? 0,
+      followingCount: usersCache[uid]?.followingCount ?? 0,
+      x, y,
+      flipped: rect.right + margin + popupWidth > window.innerWidth - 16,
+    });
+  }, [usersCache, router]);
 
   // ── Follow / Unfollow ─────────────────────────────────────────────────────
   const handleFollowToggle = useCallback(async (targetUid, isCurrentlyFollowing) => {
@@ -303,7 +319,10 @@ const openProfile = useCallback((e, uid, storedName, storedPhoto) => {
   const trendingPosts = useMemo(() => {
     const cutoff = Date.now() - 48 * 60 * 60 * 1000;
     return posts
-      .filter((p) => { const ts = p.timestamp?.toDate ? p.timestamp.toDate().getTime() : 0; return ts >= cutoff; })
+      .filter((p) => {
+        const ts = p.timestamp?.toDate ? p.timestamp.toDate().getTime() : 0;
+        return ts >= cutoff;
+      })
       .sort((a, b) => (b.likes || 0) - (a.likes || 0))
       .slice(0, 10);
   }, [posts]);
@@ -319,10 +338,14 @@ const openProfile = useCallback((e, uid, storedName, storedPhoto) => {
         if (isToday) newToday[tag] = (newToday[tag] || 0) + 1;
       });
     });
-    return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([tag, count]) => ({
-      tag, posts: `${count} post${count === 1 ? "" : "s"}`,
-      new: newToday[tag] ? `+${newToday[tag]} new today` : "No new posts today",
-    }));
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([tag, count]) => ({
+        tag,
+        posts: `${count} post${count === 1 ? "" : "s"}`,
+        new: newToday[tag] ? `+${newToday[tag]} new today` : "No new posts today",
+      }));
   }, [posts]);
 
   // ── Post CRUD ─────────────────────────────────────────────────────────────
@@ -340,9 +363,12 @@ const openProfile = useCallback((e, uid, storedName, storedPhoto) => {
         timestamp: serverTimestamp(),
         likes: 0, likedBy: [], comments: [],
       });
+      await updateStreak(user.uid);
       setContent(""); setSelectedTags([]); setPostType("discussion");
-    } catch (err) { console.error(err); setError("Failed to create post. Please try again."); }
-    finally { setPosting(false); }
+    } catch (err) {
+      console.error(err);
+      setError("Failed to create post. Please try again.");
+    } finally { setPosting(false); }
   };
 
   const handleInsertCode = (codeBlock) => {
@@ -410,6 +436,7 @@ const openProfile = useCallback((e, uid, storedName, storedPhoto) => {
     };
     try {
       await updateDoc(doc(db, "posts", post.id), { comments: arrayUnion(newComment) });
+      await updateStreak(user.uid);
       setCommentDraft("");
       await createNotification({ toUid: post.uid, fromUser: user, type: "comment", postId: post.id, preview: trimmed });
     } catch (err) { console.error(err); setError("Failed to add comment."); }
@@ -445,7 +472,7 @@ const openProfile = useCallback((e, uid, storedName, storedPhoto) => {
     catch (err) { console.error(err); setError("Failed to delete comment."); }
   };
 
-  // ── Shared props bundle for feed / post cards ────────────────────────────
+  // ── Shared props bundles ──────────────────────────────────────────────────
   const sharedPostProps = {
     user, isMobile, openCommentsFor, commentDraft, setCommentDraft,
     editingId, editContent, setEditContent, editingComment,
@@ -496,6 +523,7 @@ const openProfile = useCallback((e, uid, storedName, storedPhoto) => {
                 savedPostIds={savedPostIds}
                 onShowSavedPosts={() => setShowSavedPosts(true)}
                 onShowFeatureTour={() => setShowFeatureTour(true)}
+                streak={streak}
               />
 
               <FeedColumn {...feedColumnProps} />
@@ -520,9 +548,16 @@ const openProfile = useCallback((e, uid, storedName, storedPhoto) => {
           )}
         </div>
 
-        <CodeEditorModal isOpen={showCodeEditor} onClose={() => setShowCodeEditor(false)} onInsert={handleInsertCode} />
+        <CodeEditorModal
+          isOpen={showCodeEditor}
+          onClose={() => setShowCodeEditor(false)}
+          onInsert={handleInsertCode}
+        />
         {showSavedPosts && !isMobile && (
-          <SavedPosts onClose={() => setShowSavedPosts(false)} onUnsave={(postId) => handleToggleSave(postId)} />
+          <SavedPosts
+            onClose={() => setShowSavedPosts(false)}
+            onUnsave={(postId) => handleToggleSave(postId)}
+          />
         )}
         {showFeatureTour && <FeatureTour onClose={closeFeatureTour} />}
 

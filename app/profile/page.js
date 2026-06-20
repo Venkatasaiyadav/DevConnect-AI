@@ -29,7 +29,6 @@ function useIsMobile(breakpoint = 640) {
   return isMobile;
 }
 
-// ── Preset platforms users can pick from ─────────────────────────────────────
 const LINK_PRESETS = [
   { key: "github",    label: "GitHub",    icon: "🐙", placeholder: "https://github.com/username" },
   { key: "twitter",   label: "Twitter/X", icon: "🐦", placeholder: "https://twitter.com/username" },
@@ -45,7 +44,6 @@ function getPreset(key) {
   return LINK_PRESETS.find((p) => p.key === key) || { icon: "🔗", label: key, placeholder: "https://..." };
 }
 
-// ── Preset tech stack / skill badges ──────────────────────────────────────────
 const SKILL_PRESETS = [
   { key: "frontend",   label: "Frontend Developer",  color: "#3b82f6" },
   { key: "backend",    label: "Backend Developer",   color: "#8b5cf6" },
@@ -63,7 +61,6 @@ function getSkillMeta(key) {
   return SKILL_PRESETS.find((s) => s.key === key) || { key, label: key, color: "#64748b" };
 }
 
-// ── Styles ────────────────────────────────────────────────────────────────────
 const S = {
   navbar: {
     position: "fixed", top: 0, left: 0, width: "100%", height: 64,
@@ -229,13 +226,12 @@ function UserListModal({ title, uids, onClose }) {
   );
 }
 
-// ── Dynamic links editor (used in both mobile + desktop edit mode) ────────────
-// linksInput: [{ key, url }]  — key matches a preset or is "custom_N"
+// ── Dynamic links editor ──────────────────────────────────────────────────────
 function LinksEditor({ linksInput, setLinksInput }) {
   const [showPicker, setShowPicker] = useState(false);
 
   const addPreset = (preset) => {
-    if (linksInput.find((l) => l.key === preset.key)) return; // already added
+    if (linksInput.find((l) => l.key === preset.key)) return;
     setLinksInput((prev) => [...prev, { key: preset.key, url: "" }]);
     setShowPicker(false);
   };
@@ -247,13 +243,8 @@ function LinksEditor({ linksInput, setLinksInput }) {
   };
 
   const removeLink = (key) => setLinksInput((prev) => prev.filter((l) => l.key !== key));
-
-  const updateUrl = (key, url) =>
-    setLinksInput((prev) => prev.map((l) => l.key === key ? { ...l, url } : l));
-
-  const updateLabel = (key, label) =>
-    setLinksInput((prev) => prev.map((l) => l.key === key ? { ...l, label } : l));
-
+  const updateUrl = (key, url) => setLinksInput((prev) => prev.map((l) => l.key === key ? { ...l, url } : l));
+  const updateLabel = (key, label) => setLinksInput((prev) => prev.map((l) => l.key === key ? { ...l, label } : l));
   const availablePresets = LINK_PRESETS.filter((p) => !linksInput.find((l) => l.key === p.key));
 
   return (
@@ -263,7 +254,6 @@ function LinksEditor({ linksInput, setLinksInput }) {
           No links added yet. Use the button below to add one.
         </p>
       )}
-
       {linksInput.map((link) => {
         const preset = getPreset(link.key);
         const isCustom = link.key.startsWith("custom_");
@@ -299,8 +289,6 @@ function LinksEditor({ linksInput, setLinksInput }) {
           </div>
         );
       })}
-
-      {/* Add link button + picker */}
       <div style={{ position: "relative" }}>
         <button
           onClick={() => setShowPicker((v) => !v)}
@@ -308,7 +296,6 @@ function LinksEditor({ linksInput, setLinksInput }) {
         >
           + Add Link
         </button>
-
         {showPicker && (
           <div style={{
             position: "absolute", top: "calc(100% + 6px)", left: 0,
@@ -354,7 +341,6 @@ function LinksDisplay({ links }) {
     <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
       {entries.map(([key, url]) => {
         const p = getPreset(key);
-        const label = key.startsWith("custom_") ? (url) : `${p.icon} ${p.label}`;
         return (
           <a key={key} href={url} target="_blank" rel="noreferrer"
             style={{ color: "var(--accent-primary)", fontSize: "0.85rem", textDecoration: "none", display: "flex", alignItems: "center", gap: 6 }}>
@@ -369,8 +355,7 @@ function LinksDisplay({ links }) {
   );
 }
 
-// ── Tech stack / skills picker (edit mode) ────────────────────────────────────
-// skillsInput: string[]  — preset keys (e.g. "frontend") and/or freeform custom labels
+// ── Skills picker (edit mode) ─────────────────────────────────────────────────
 function SkillsPicker({ skillsInput, setSkillsInput }) {
   const [customText, setCustomText] = useState("");
   const atLimit = skillsInput.length >= MAX_SKILLS;
@@ -393,7 +378,6 @@ function SkillsPicker({ skillsInput, setSkillsInput }) {
   };
 
   const removeSkill = (key) => setSkillsInput((prev) => prev.filter((s) => s !== key));
-
   const customSkills = skillsInput.filter((s) => !SKILL_PRESETS.find((p) => p.key === s));
 
   return (
@@ -423,7 +407,6 @@ function SkillsPicker({ skillsInput, setSkillsInput }) {
           );
         })}
       </div>
-
       {customSkills.length > 0 && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
           {customSkills.map((s) => (
@@ -443,7 +426,6 @@ function SkillsPicker({ skillsInput, setSkillsInput }) {
           ))}
         </div>
       )}
-
       <div style={{ display: "flex", gap: 6 }}>
         <input
           style={{ ...S.input, fontSize: "0.82rem", padding: "6px 10px" }}
@@ -484,7 +466,7 @@ function SkillBadges({ skills }) {
   );
 }
 
-// ── Open-to-collaborate toggle (edit mode) ────────────────────────────────────
+// ── Collab toggle (edit mode) ─────────────────────────────────────────────────
 function CollabToggle({ value, onChange, disabled = false, label = "Open to Collaboration" }) {
   return (
     <div
@@ -509,14 +491,12 @@ function CollabToggle({ value, onChange, disabled = false, label = "Open to Coll
           transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
         }} />
       </div>
-      <span style={{ fontSize: "0.85rem", color: "var(--text-primary)", fontWeight: 500 }}>
-        {label}
-      </span>
+      <span style={{ fontSize: "0.85rem", color: "var(--text-primary)", fontWeight: 500 }}>{label}</span>
     </div>
   );
 }
 
-// ── Open-to-collaborate badge (view mode) ─────────────────────────────────────
+// ── Collab badge (view mode) ──────────────────────────────────────────────────
 function CollabBadge() {
   return (
     <span style={{
@@ -531,14 +511,25 @@ function CollabBadge() {
   );
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-// Convert flat links object (from Firestore) → array for editor
-function linksObjToArr(obj) {
-  return Object.entries(obj)
-    .filter(([, url]) => url)
-    .map(([key, url]) => ({ key, url }));
+// ── NEW: Streak badge (view mode) ─────────────────────────────────────────────
+function StreakBadge({ count }) {
+    
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 6,
+      padding: "3px 11px", borderRadius: "var(--radius-full)",
+      background: "rgba(251,146,60,0.12)", border: "1px solid rgba(251,146,60,0.4)",
+      color: "#fb923c", fontSize: "0.74rem", fontWeight: 700,
+    }}>
+      🔥 {count} day streak
+    </span>
+  );
 }
-// Convert editor array → flat object for Firestore
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function linksObjToArr(obj) {
+  return Object.entries(obj).filter(([, url]) => url).map(([key, url]) => ({ key, url }));
+}
 function linksArrToObj(arr) {
   const obj = {};
   arr.forEach(({ key, url, label }) => {
@@ -548,7 +539,7 @@ function linksArrToObj(arr) {
   return obj;
 }
 
-// ── EditForm (top-level so React never remounts inputs on parent re-render) ───
+// ── EditForm ──────────────────────────────────────────────────────────────────
 function EditForm({
   nameInput, setNameInput, bioInput, setBioInput, linksInput, setLinksInput,
   skillsInput, setSkillsInput, collabInput, setCollabInput,
@@ -607,7 +598,7 @@ function EditForm({
   );
 }
 
-// ── AvatarWidget (top-level for same reason) ──────────────────────────────────
+// ── AvatarWidget ──────────────────────────────────────────────────────────────
 function AvatarWidget({ size, currentPhotoURL, displayName, photoUploading, photoMsg, avatarHovered, setAvatarHovered, fileInputRef }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, flexShrink: 0 }}>
@@ -669,21 +660,20 @@ export default function Profile() {
   const [photoUploading, setPhotoUploading] = useState(false);
   const [photoMsg, setPhotoMsg] = useState(null);
 
-  // unified edit state
   const [editing, setEditing] = useState(false);
   const [nameInput, setNameInput] = useState("");
   const [bioInput, setBioInput] = useState("");
-  const [linksInput, setLinksInput] = useState([]); // [{ key, url, label? }]
-  const [skillsInput, setSkillsInput] = useState([]); // string[]
+  const [linksInput, setLinksInput] = useState([]);
+  const [skillsInput, setSkillsInput] = useState([]);
   const [collabInput, setCollabInput] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
   const [editMsg, setEditMsg] = useState(null);
 
-  // saved values
   const [bio, setBio] = useState("");
   const [links, setLinks] = useState({});
   const [skills, setSkills] = useState([]);
   const [openToCollaborate, setOpenToCollaborate] = useState(false);
+  const [streak, setStreak] = useState(0);
 
   const [followers, setFollowers] = useState([]);
   const [following, setFollowing] = useState([]);
@@ -701,16 +691,15 @@ export default function Profile() {
       if (!snap.exists()) return;
       const data = snap.data();
       setBio(data.bio || "");
-      // collect all link keys from data (any key that starts with known preset or custom_)
       const linkObj = {};
       LINK_PRESETS.forEach(({ key }) => { if (data[key]) linkObj[key] = data[key]; });
-      // pick up custom_ keys
       Object.keys(data).forEach((k) => { if (k.startsWith("custom_") && !k.endsWith("_label")) linkObj[k] = data[k]; });
       setLinks(linkObj);
       setSkills(Array.isArray(data.skills) ? data.skills : []);
       setOpenToCollaborate(!!data.openToCollaborate);
       setFollowers(data.followers || []);
       setFollowing(data.following || []);
+      setStreak(data.streak || 0);
     });
     return () => unsub();
   }, [user]);
@@ -736,7 +725,6 @@ export default function Profile() {
     ? new Date(user.metadata.creationTime).toLocaleDateString("en-US", { month: "long", year: "numeric" })
     : "Recently";
 
-  // ── Open edit mode ──────────────────────────────────────────────────────────
   const startEditing = () => {
     setNameInput(user.displayName || "");
     setBioInput(bio);
@@ -747,17 +735,14 @@ export default function Profile() {
     setEditMsg(null);
   };
 
-  // ── Save everything ─────────────────────────────────────────────────────────
   const handleSaveProfile = async () => {
     if (!nameInput.trim()) { setEditMsg({ type: "error", text: "Name cannot be empty." }); return; }
     if (bioInput.length > 200) { setEditMsg({ type: "error", text: "Bio must be 200 chars or less." }); return; }
     setEditSaving(true); setEditMsg(null);
     try {
       await updateProfile(user, { displayName: nameInput.trim() });
-      // build links object — first clear all old link keys, then set new ones
       const cleanedLinks = {};
       LINK_PRESETS.forEach(({ key }) => { cleanedLinks[key] = ""; });
-      // clear old custom keys (we'll re-save current ones)
       Object.keys(links).forEach((k) => { if (k.startsWith("custom_")) cleanedLinks[k] = ""; });
       const newLinks = linksArrToObj(linksInput);
       await setDoc(doc(db, "users", user.uid), {
@@ -775,14 +760,13 @@ export default function Profile() {
     } finally { setEditSaving(false); }
   };
 
-  // ── Photo ───────────────────────────────────────────────────────────────────
   const handlePhotoChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) { setPhotoMsg({ type: "error", text: "Please select an image file." }); return; }
     if (file.size > 5 * 1024 * 1024) { setPhotoMsg({ type: "error", text: "Image must be under 5MB." }); return; }
     setPhotoUploading(true); setPhotoMsg(null);
-    try { 
+    try {
       const formData = new FormData();
       formData.append("file", file);
       formData.append("upload_preset", process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET);
@@ -798,11 +782,9 @@ export default function Profile() {
       await setDoc(doc(db, "users", user.uid), { photoURL }, { merge: true });
       setCurrentPhotoURL(photoURL);
       setPhotoMsg({ type: "success", text: "Photo updated!" });
-    } catch (err) { 
-  
-  setPhotoMsg({ type: "error", text: "Upload failed. Try again." }); 
-}
-    finally { setPhotoUploading(false); if (fileInputRef.current) fileInputRef.current.value = ""; }
+    } catch (err) {
+      setPhotoMsg({ type: "error", text: "Upload failed. Try again." });
+    } finally { setPhotoUploading(false); if (fileInputRef.current) fileInputRef.current.value = ""; }
   };
 
   const handleLogout = async () => {
@@ -814,7 +796,6 @@ export default function Profile() {
 
   return (
     <main style={S.main}>
-      {/* ── Navbar ── */}
       <header style={{ ...S.navbar, ...(isMobile ? S.navbarMobile : {}) }}>
         <Link href="/dashboard" style={{ ...S.navBrand, ...(isMobile ? S.navBrandMobile : {}) }}>
           <span>{isMobile ? "🧠 DevConnect" : "🧠 DevConnect AI"}</span>
@@ -838,7 +819,6 @@ export default function Profile() {
 
       <div style={isMobile ? S.containerMobile : S.container}>
         {isMobile ? (
-          /* ════════ MOBILE LAYOUT ════════ */
           <>
             {/* Hero card */}
             <div style={{ ...S.card, ...cm }}>
@@ -867,9 +847,10 @@ export default function Profile() {
                       <p style={{ color: "var(--text-muted)", margin: 0, fontSize: "0.88rem", wordBreak: "break-word" }}>{user.email}</p>
                     </div>
                     {bio && <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem", textAlign: "center", margin: 0, maxWidth: 300 }}>{bio}</p>}
-                    {openToCollaborate && (
-                      <div style={{ display: "flex", justifyContent: "center" }}><CollabBadge /></div>
-                    )}
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
+                      {openToCollaborate && <CollabBadge />}
+                      <StreakBadge count={streak} />
+                    </div>
                     {skills.length > 0 && (
                       <div style={{ display: "flex", justifyContent: "center" }}>
                         <SkillBadges skills={skills} />
@@ -913,7 +894,7 @@ export default function Profile() {
               ))}
             </div>
 
-            {/* Account info (read-only on mobile, editing handled in hero card) */}
+            {/* Account info */}
             <div style={{ ...S.card, ...cm, marginTop: 14 }}>
               <h2 style={{ color: "var(--text-primary)", fontSize: "1rem", margin: "0 0 16px 0", fontWeight: 600 }}>Account</h2>
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -924,19 +905,16 @@ export default function Profile() {
               <button onClick={handleLogout} style={{ ...S.btnSignOut, marginTop: 20 }}>Sign Out</button>
             </div>
 
-            {/* Posts */}
             <PostsSection myPosts={myPosts} postCount={postCount} S={S} cm={cm} />
             <div style={{ height: 40 }} />
           </>
         ) : (
-          /* ════════ DESKTOP LAYOUT ════════ */
           <>
-            {/* ── Hero card ── */}
+            {/* Desktop hero card */}
             <div style={{ ...S.card, marginBottom: 20 }}>
               <div style={{ display: "flex", alignItems: "flex-start", gap: 28 }}>
                 <AvatarWidget size={100} currentPhotoURL={currentPhotoURL} displayName={user.displayName} photoUploading={photoUploading} photoMsg={photoMsg} avatarHovered={avatarHovered} setAvatarHovered={setAvatarHovered} fileInputRef={fileInputRef} />
 
-                {/* Name / bio / links — or edit form */}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   {editing ? (
                     <EditForm
@@ -956,6 +934,7 @@ export default function Profile() {
                           {user.displayName || "Anonymous User"}
                         </h1>
                         {openToCollaborate && <CollabBadge />}
+                        <StreakBadge count={streak} />
                       </div>
                       <p style={{ color: "var(--text-muted)", margin: "0 0 8px 0", fontSize: "0.9rem" }}>{user.email}</p>
                       {bio && (
@@ -984,7 +963,6 @@ export default function Profile() {
                   )}
                 </div>
 
-                {/* Top-right: Edit + stats (only in view mode) */}
                 {!editing && (
                   <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 16 }}>
                     <button onClick={startEditing} style={{ ...S.btnGhost, display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
@@ -1012,10 +990,8 @@ export default function Profile() {
               </div>
             </div>
 
-            {/* ── Two-column bottom ── */}
+            {/* Two-column bottom */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1.6fr", gap: 20, alignItems: "start" }}>
-
-              {/* LEFT: Account details */}
               <div style={{ ...S.card, height: "100%", boxSizing: "border-box" }}>
                 <h2 style={{ color: "var(--text-muted)", fontSize: "0.9rem", margin: "0 0 18px 0", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Account</h2>
                 <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -1053,6 +1029,15 @@ export default function Profile() {
                   </div>
                   <div style={S.divider} />
                   <div>
+                    <div style={{ ...S.infoLabel, marginBottom: 8 }}>Activity Streak</div>
+                    <div style={{ marginTop: 4 }}>
+                      {streak > 0
+                        ? <StreakBadge count={streak} />
+                        : <span style={{ color: "var(--text-muted)", fontStyle: "italic", fontSize: "0.85rem" }}>No streak yet — post or comment to start one!</span>}
+                    </div>
+                  </div>
+                  <div style={S.divider} />
+                  <div>
                     <div style={{ ...S.infoLabel, marginBottom: 8 }}>Social Links</div>
                     <LinksDisplay links={links} />
                   </div>
@@ -1070,7 +1055,6 @@ export default function Profile() {
                 >Sign Out</button>
               </div>
 
-              {/* RIGHT: My Posts */}
               <div style={{ ...S.card, height: "100%", boxSizing: "border-box" }}>
                 <h2 style={{ color: "var(--text-muted)", fontSize: "0.9rem", margin: "0 0 18px 0", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <span>My Posts</span>
