@@ -397,6 +397,12 @@ export default function Dashboard() {
       await setDoc(doc(db, "users", user.uid), {
         savedPosts: isSaved ? arrayRemove(postId) : arrayUnion(postId),
       }, { merge: true });
+
+      const post = posts.find((p) => p.id === postId);
+      const currentCount = post?.saveCount || 0;
+      await updateDoc(doc(db, "posts", postId), {
+        saveCount: isSaved ? Math.max(0, currentCount - 1) : currentCount + 1,
+      });
     } catch (err) { console.error(err); setError("Failed to update saved posts."); }
   };
 

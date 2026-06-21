@@ -431,7 +431,7 @@ export default function PostCard({
           style={savedPostIds.includes(post.id) ? S.btnActionActive : S.btnAction}
           onClick={() => onToggleSave(post.id)}
         >
-          🔖
+          🔖 {post.saveCount || 0}
         </button>
         {user?.uid === post.uid && (
           <div style={{ display: "flex", gap: 2 }}>
