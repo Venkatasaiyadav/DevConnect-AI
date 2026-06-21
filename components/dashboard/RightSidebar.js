@@ -79,6 +79,16 @@ const S = {
     justifyContent: "space-between",
     textDecoration: "none",
   },
+  trendingLinkActive: {
+    color: "var(--accent-primary)",
+    fontWeight: 700,
+    fontSize: "0.88rem",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    textDecoration: "none",
+    cursor: "pointer",
+  },
   trendingStats: { fontSize: "0.72rem", color: "var(--text-muted)" },
   membersList: { display: "flex", flexDirection: "column", gap: 12 },
   memberItem: { display: "flex", alignItems: "center", justifyContent: "space-between" },
@@ -95,7 +105,7 @@ const S = {
   },
 };
 
-export default function RightSidebar({ trendingTags, activeMembers }) {
+export default function RightSidebar({ trendingTags, activeMembers, activeTag, onTagClick }) {
   return (
     <aside style={S.rightSidebar}>
       {/* AI Copilot widget */}
@@ -121,9 +131,12 @@ export default function RightSidebar({ trendingTags, activeMembers }) {
           ) : (
             trendingTags.map(({ tag, posts: p, new: newPosts }) => (
               <div key={tag} style={S.trendingItem}>
-                <a href="#" style={S.trendingLink}>
+                <button
+                  onClick={() => onTagClick(tag)}
+                  style={activeTag === tag ? S.trendingLinkActive : S.trendingLink}
+                >
                   <span>{tag}</span><span>{p}</span>
-                </a>
+                </button>
                 <span style={S.trendingStats}>{newPosts}</span>
               </div>
             ))

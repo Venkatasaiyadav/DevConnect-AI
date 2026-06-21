@@ -223,16 +223,16 @@ export default function FeedColumn({
       )}
 
       {activeTab === "latest" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          {posts.length === 0 ? (
-            <p style={{ color: "var(--text-muted)" }}>No posts yet. Create the first post!</p>
-          ) : (
-            posts.map((post, i) => (
-              <PostCard key={post.id} post={post} postIndex={i} isHighlighted={highlightedPostId === post.id} {...postCardProps} />
-            ))
-          )}
-        </div>
-      )}
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {filteredPosts.length === 0 ? (
+              <p style={{ color: "var(--text-muted)" }}>No posts found for this tag.</p>
+            ) : (
+              filteredPosts.map((post, i) => (
+                <PostCard key={post.id} post={post} postIndex={i} isHighlighted={highlightedPostId === post.id} {...postCardProps} />
+              ))
+            )}
+          </div>
+        )}
     </section>
   );
 }
