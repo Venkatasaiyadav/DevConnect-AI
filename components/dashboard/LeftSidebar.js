@@ -81,12 +81,51 @@ const S = {
     borderRadius: "var(--radius-md)",
     textDecoration: "none",
   },
+  streakCard: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "10px 16px",
+    borderRadius: "var(--radius-md)",
+    background: "rgba(251,146,60,0.08)",
+    border: "1px solid rgba(251,146,60,0.25)",
+    marginBottom: 4,
+  },
+  streakEmoji: { fontSize: "1.1rem", lineHeight: 1 },
+  streakText: {
+    fontSize: "0.82rem",
+    color: "var(--text-secondary)",
+    fontWeight: 500,
+  },
+  streakCount: {
+    marginLeft: "auto",
+    fontSize: "0.9rem",
+    fontWeight: 700,
+    color: "#fb923c",
+  },
 };
 
-export default function LeftSidebar({ activeTab, setActiveTab, savedPostIds, onShowSavedPosts, onShowFeatureTour }) {
+export default function LeftSidebar({
+  activeTab,
+  setActiveTab,
+  savedPostIds,
+  onShowSavedPosts,
+  onShowFeatureTour,
+  streak = 0,
+}) {
   return (
     <aside style={S.leftSidebar}>
       <ul style={S.sidebarNavList}>
+        
+          <li>
+            <div style={S.streakCard}>
+              <span style={S.streakEmoji}>🔥</span>
+              <span style={S.streakText}>Day streak</span>
+              <span style={S.streakCount}>{streak}</span>
+            </div>
+          </li>
+        
+
         {FEED_TABS.map(({ id, label, icon }) => (
           <li key={id}>
             <button
@@ -97,6 +136,7 @@ export default function LeftSidebar({ activeTab, setActiveTab, savedPostIds, onS
             </button>
           </li>
         ))}
+
         <li>
           <button id="saved-posts-nav" style={S.sidebarNavItemLink} onClick={onShowSavedPosts}>
             <span>🔖</span><span>Saved Posts</span>
@@ -113,8 +153,11 @@ export default function LeftSidebar({ activeTab, setActiveTab, savedPostIds, onS
           </button>
         </li>
       </ul>
+
       <div style={S.sidebarFooterCard}>
-        <p style={S.sidebarFooterCardP}>Get instant AI reviews of your code repositories directly from GitHub.</p>
+        <p style={S.sidebarFooterCardP}>
+          Get instant AI reviews of your code repositories directly from GitHub.
+        </p>
         <a href="/#features" style={S.btnSidebarCta}>Activate AI Copilot</a>
       </div>
     </aside>
